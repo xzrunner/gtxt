@@ -6,11 +6,11 @@ extern "C"
 #ifndef gametext_ejoy2d_h
 #define gametext_ejoy2d_h
 
-#ifndef USED_IN_EDITOR
-#include <shader.h>
-#include <render.h>
-#include <renderbuffer.h>
-#endif // USED_IN_EDITOR
+//#ifndef USED_IN_EDITOR
+//#include <shader.h>
+//#include <render.h>
+//#include <renderbuffer.h>
+//#endif // USED_IN_EDITOR
 
 #ifndef USED_IN_EDITOR
 
