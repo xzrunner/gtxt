@@ -87,12 +87,15 @@ _draw_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void
 		return len;
 	}
 
-	struct layout_pos* pos = &params->result[params->idx++];
 	int unicode = _get_unicode(str, len);
-	if (style->ext_sym_ud) {
+	if (unicode == '\n') {
+		return len;
+	} else if (style->ext_sym_ud) {
+		struct layout_pos* pos = &params->result[params->idx++];
 		assert(unicode == ' ' && pos->unicode == -1);	
 		gtxt_ext_sym_render(style->ext_sym_ud, pos->x, pos->y, params->ud);
 	} else {
+		struct layout_pos* pos = &params->result[params->idx++];
 		assert(pos->unicode == unicode);
 		gtxt_draw_glyph(unicode, &style->gs, pos->x, pos->y, pos->w, pos->h, params->render, params->ud);
 	}
