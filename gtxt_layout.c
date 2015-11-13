@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #define INIT_ROW_CAP 4
 #define INIT_GLYPH_CAP 16
@@ -50,57 +51,100 @@ struct layout {
 
 static struct layout L;
 
-static inline bool
+static inline void
 _prepare_glyph_freelist(int cap) {
 	if (cap <= L.glyph_cap || cap <= 0) {
-		return true;
+		return;
+	}
+
+	int new_num = cap - L.glyph_cap;
+	int sz = sizeof(struct glyph) * new_num;
+	struct glyph* new_list = (struct glyph*)malloc(sz);
+	if (!new_list) {
+		printf("malloc fail, gtxt_layout _prepare_glyph_freelist \n");
+		exit(1);
+	}
+	memset(new_list, 0, sz);
+	for (int i = 0; i < new_num - 1; ++i) {
+		new_list[i].next = &new_list[i+1];
+	}
+	new_list[new_num - 1].next = NULL;
+
+	if (L.glyph_freelist) {
+		struct glyph* end = L.glyph_freelist;
+		while (end->next) { 
+			end = end->next;
+		}
+		end->next = new_list;
+	} else {
+		L.glyph_freelist = new_list;				
 	}
 
 	L.glyph_cap = cap;
-	if (L.glyph_freelist) {
-		free(L.head->head);
-	}
-
-	size_t sz = sizeof(struct glyph) * cap;
-	L.glyph_freelist = (struct glyph*)malloc(sz);
-	if (!L.glyph_freelist) {
-		return false;
-	}
-	memset(L.glyph_freelist, 0, sz);
-
-	for (int i = 0; i < cap - 1; ++i) {
-		L.glyph_freelist[i].next = &L.glyph_freelist[i + 1];
-	}
-	L.glyph_freelist[cap - 1].next = NULL;
-
-	return true;
 }
 
-static inline bool
+static inline void
 _prepare_row_freelist(int cap) {
 	if (cap <= L.row_cap || cap <= 0) {
-		return true;
+		return;
+	}
+
+	int new_num = cap - L.row_cap;
+	int sz = sizeof(struct row) * new_num;
+	struct row* new_list = (struct row*)malloc(sz);
+	if (!new_list) {
+		printf("malloc fail, gtxt_layout _prepare_row_freelist \n");
+		exit(1);
+	}
+	memset(new_list, 0, sz);
+	for (int i = 0; i < new_num - 1; ++i) {
+		new_list[i].next = &new_list[i+1];
+	}
+	new_list[new_num - 1].next = NULL;
+
+	if (L.row_freelist) {
+		struct row* end = L.row_freelist;
+		while (end->next) { 
+			end = end->next;
+		}
+		end->next = new_list;
+	} else {
+		L.row_freelist = new_list;
 	}
 
 	L.row_cap = cap;
-	if (L.row_freelist) {
-		free(L.head);
-	}
-
-	size_t sz = sizeof(struct row) * cap;
-	L.row_freelist = (struct row*)malloc(sz);
-	if (!L.row_freelist) {
-		return false;
-	}
-	memset(L.row_freelist, 0, sz);
-
-	for (int i = 0; i < cap - 1; ++i) {
-		L.row_freelist[i].next = &L.row_freelist[i + 1];
-	}
-	L.row_freelist[cap - 1].next = NULL;
-
-	return true;
 }
+
+// #define PREPARE_FREELIST(type, cap) do { \
+// 	if ((cap) <= L.##type##_cap || (cap) <= 0) { \
+// 		break; \
+// 	} \
+// 	\
+// 	int new_num = (cap) - L.##type##_cap; \
+// 	int sz = sizeof(struct type) * new_num; \
+// 	struct type * new_list = (struct type *)malloc(sz); \
+// 	if (!new_list) { \
+// 	printf("malloc fail, gtxt_layout _prepare_##type##_freelist \n"); \
+// 		exit(1); \
+// 	} \
+// 	memset(new_list, 0, sz); \
+// 	for (int i = 0; i < new_num - 1; ++i) { \
+// 		new_list[i].next = &new_list[i+1]; \
+// 	} \
+// 	new_list[new_num - 1].next = NULL; \
+// 	\
+// 	if (L.##type##_freelist) { \
+// 		struct type * end = L.##type##_freelist; \
+// 		while (end->next) { \
+// 			end = end->next; \
+// 		} \
+// 		end->next = new_list; \
+// 	} else { \
+// 		L.##type##_freelist = new_list; \
+// 	} \
+// 	\
+// 	L.##type##_cap = (cap); \
+// } while (0)
 
 static inline void 
 _prepare_freelist(int row_cap, int glyph_cap) {
@@ -164,6 +208,9 @@ gtxt_layout_end() {
 	if (last_tail) {
 		last_tail->next = freelist;
 	}
+	if (!L.glyph_freelist) {
+		L.glyph_freelist = freelist;
+	}
 }
 
 static inline struct glyph*
@@ -226,7 +273,7 @@ gtxt_layout_single(int unicode, struct gtxt_richtext_style* style) {
 			return false;
 		}
 		if (unicode == '\n') {
-			return true;
+			return false;
 		}
 	} 
 	
@@ -254,10 +301,7 @@ gtxt_layout_single(int unicode, struct gtxt_richtext_style* style) {
 void 
 gtxt_layout_multi(struct dtex_array* unicodes) {
 	int glyph_sz = dtex_array_size(unicodes);
-	bool succ = _prepare_glyph_freelist(glyph_sz);
-	if (!succ) {
-		return;
-	}
+	_prepare_glyph_freelist(glyph_sz);
 
 	for (int i = 0; i < glyph_sz; ++i) {
 		int unicode = *(int*)dtex_array_fetch(unicodes, i);
