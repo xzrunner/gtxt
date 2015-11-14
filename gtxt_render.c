@@ -1,8 +1,6 @@
 #include "gtxt_render.h"
 #include "gtxt_glyph.h"
 
-#include "gtxt_ejoy2d.h"
-
 #include <dtex_cg.h>
 #include <dtex_ej_glyph.h>
 
@@ -33,18 +31,6 @@ gtxt_draw_glyph(int unicode, struct gtxt_glyph_style* style, float x, float y, f
 		dtex_cg_load(CG, buf, layout.sizer.width, layout.sizer.height, &g);
 		return;
 	}
-
-//#ifndef USED_IN_EDITOR
-//	struct ej_vertex_pack vb[4];
-//	for (int i = 0; i < 4; ++i) {
-//		vb[i].tx = texcoords[i*2] * 0xffff;
-//		vb[i].ty = texcoords[i*2+1] * 0xffff;
-//	}
-//	ej_shader_texture(uid, 0);
-//	ej_shader_draw(vb, 0xffffffff, 0, 0xff0000ff, 0x00ff00ff, 0x0000ffff);
-//#else
-//	dtex_ej_glyph_draw(uid, texcoords, x, y, 50, 50);
-//#endif // USED_IN_EDITOR
 
 	render(uid, texcoords, x, y, w, h, ud);
 }
