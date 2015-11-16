@@ -76,18 +76,18 @@ _draw_default(struct font* font, FT_UInt gindex, union gtxt_color color, struct 
 		return false;
 	}
 
-	FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_NORMAL, 0, 1);
-	FT_BitmapGlyph bitmap_glyph = (FT_BitmapGlyph)glyph;
-	FT_Bitmap* bitmap = &bitmap_glyph->bitmap; //just to make things easier
-
-	// Get metrics
-	layout->bearing_x = ft_face->glyph->metrics.horiBearingX >> 6;
-	layout->bearing_y = ft_face->glyph->metrics.horiBearingY >> 6;
-	layout->sizer.height = bitmap->rows;
-	layout->sizer.width = bitmap->width;
-	layout->advance = ft_face->glyph->metrics.horiAdvance >> 6;
+	FT_Glyph_Metrics gm = ft_face->glyph->metrics;
+	layout->bearing_x = gm.horiBearingX >> 6;
+	layout->bearing_y = gm.horiBearingY >> 6;
+	layout->sizer.height = gm.height >> 6;
+	layout->sizer.width = gm.width >> 6;
+	layout->advance = gm.horiAdvance >> 6;
 
 	if (cb) {
+		FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_NORMAL, 0, 1);
+		FT_BitmapGlyph bitmap_glyph = (FT_BitmapGlyph)glyph;
+		FT_Bitmap* bitmap = &bitmap_glyph->bitmap;
+		assert(bitmap->rows == layout->sizer.height && bitmap->width == layout->sizer.width);
 		cb(bitmap, color);
 	}
 
