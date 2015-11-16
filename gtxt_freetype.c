@@ -17,6 +17,9 @@
 #include <ftstroke.h>
 #endif // USED_IN_EDITOR
 
+#define MAX(a, b) ( ((a)>(b))?(a):(b) )
+#define MIN(a, b) ( ((a)<(b))?(a):(b) )
+
 struct font {
 	FT_Library library;
 	FT_Face face;
@@ -226,16 +229,22 @@ _draw_with_edge(struct font* font, FT_UInt gindex, union gtxt_color font_color,
 		_rect_merge_point(&rect, s->x + s->width - 1, s->y);
 	}
 
+	layout->bearing_x = ft_face->glyph->metrics.horiBearingX >> 6;
+	layout->bearing_y = ft_face->glyph->metrics.horiBearingY >> 6;
+	layout->advance = ft_face->glyph->metrics.horiAdvance >> 6;
+
 	int img_w = _rect_width(&rect),
 		img_h = _rect_height(&rect);
 	layout->sizer.width = img_w;
 	layout->sizer.height = img_h;
 
+	// fix for edge
 	int in_img_h = ft_face->glyph->metrics.height >> 6;
 	int in_img_w = ft_face->glyph->metrics.width >> 6;
-	layout->bearing_x = (ft_face->glyph->metrics.horiBearingX >> 6) + ((img_w - in_img_w) >> 1);
-	layout->bearing_y = (ft_face->glyph->metrics.horiBearingY >> 6) + ((img_h - in_img_h) >> 1);
-	layout->advance = ft_face->glyph->metrics.horiAdvance >> 6;
+	layout->bearing_x += (img_w - in_img_w) >> 1;
+	layout->bearing_y += (img_h - in_img_h) >> 1;
+	layout->advance += img_w - in_img_w;
+	layout->metrics_height += img_h - in_img_h;
 
 	if (cb) {
 		cb(rect.xmin, rect.ymin, img_w, img_h, font_color, edge_color, &out_spans, &in_spans);

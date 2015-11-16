@@ -267,7 +267,7 @@ gtxt_layout_single(int unicode, struct gtxt_richtext_style* style) {
 	}
 
 	struct gtxt_glyph_layout* g_layout = gtxt_glyph_get_layout(unicode, gs);
-	float w = MAX(g_layout->advance, g_layout->sizer.width) * L.style->space_h;
+	float w = g_layout->advance * L.style->space_h;
 	if (unicode == '\n' || L.curr_row->width + w > L.style->width) {
 		if (!_line_feed()) {
 			return false;

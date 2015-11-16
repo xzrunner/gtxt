@@ -8,9 +8,6 @@ extern "C"
 
 #include <stdint.h>
 
-#define MAX(a, b) ( ((a)>(b))?(a):(b) )
-#define MIN(a, b) ( ((a)<(b))?(a):(b) )
-
 #if (('1234' >> 24) == '1')
 #elif (('4321' >> 24) == '1')
   #define BIG_ENDIAN
