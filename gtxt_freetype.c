@@ -160,7 +160,7 @@ _rect_height(struct rect* r) {
 static bool
 _draw_with_edge(struct font* font, FT_UInt gindex, union gtxt_color font_color, 
 				float edge_size, union gtxt_color edge_color, struct gtxt_glyph_layout* layout, 
-				void (*cb)(int img_w, int img_h, struct rect* rect, union gtxt_color font_color, union gtxt_color edge_color, struct spans* out_spans, struct spans* in_spans)) {
+				void (*cb)(int img_x, int img_y, int img_w, int img_h, union gtxt_color font_color, union gtxt_color edge_color, struct spans* out_spans, struct spans* in_spans)) {
 	FT_Face ft_face = font->face;
 	FT_Library ft_library = font->library;
 
@@ -226,17 +226,19 @@ _draw_with_edge(struct font* font, FT_UInt gindex, union gtxt_color font_color,
 		_rect_merge_point(&rect, s->x + s->width - 1, s->y);
 	}
 
-	layout->bearing_x = ft_face->glyph->metrics.horiBearingX >> 6;
-	layout->bearing_y = ft_face->glyph->metrics.horiBearingY >> 6;
-	layout->advance = ft_face->glyph->metrics.horiAdvance >> 6;
-
 	int img_w = _rect_width(&rect),
 		img_h = _rect_height(&rect);
 	layout->sizer.width = img_w;
 	layout->sizer.height = img_h;
 
+	int in_img_h = ft_face->glyph->metrics.height >> 6;
+	int in_img_w = ft_face->glyph->metrics.width >> 6;
+	layout->bearing_x = (ft_face->glyph->metrics.horiBearingX >> 6) + ((img_w - in_img_w) >> 1);
+	layout->bearing_y = (ft_face->glyph->metrics.horiBearingY >> 6) + ((img_h - in_img_h) >> 1);
+	layout->advance = ft_face->glyph->metrics.horiAdvance >> 6;
+
 	if (cb) {
-		cb(img_w, img_h, &rect, font_color, edge_color, &out_spans, &in_spans);
+		cb(rect.xmin, rect.ymin, img_w, img_h, font_color, edge_color, &out_spans, &in_spans);
 	}
 
 	return true;
@@ -245,7 +247,7 @@ _draw_with_edge(struct font* font, FT_UInt gindex, union gtxt_color font_color,
 static bool
 _load_glyph_to_bitmap(int unicode, struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout,
 					  void (*default_cb)(FT_Bitmap* bitmap, union gtxt_color color),
-					  void (*edge_cb)(int img_w, int img_h, struct rect* rect, union gtxt_color font_color, union gtxt_color edge_color, struct spans* out_spans, struct spans* in_spans)) {
+					  void (*edge_cb)(int img_x, int img_y, int img_w, int img_h, union gtxt_color font_color, union gtxt_color edge_color, struct spans* out_spans, struct spans* in_spans)) {
 	if (style->font < 0 || style->font >= FT.count) {
 		return false;
 	}
@@ -304,7 +306,7 @@ _copy_glyph_default(FT_Bitmap* bitmap, union gtxt_color color) {
 }
 
 static inline void
-_copy_glyph_with_edge(int img_w, int img_h, struct rect* rect,
+_copy_glyph_with_edge(int img_x, int img_y, int img_w, int img_h,
                       union gtxt_color font_color, union gtxt_color edge_color,
                       struct spans* out_spans, struct spans* in_spans) {
 	int sz = sizeof(union gtxt_color) * img_w * img_h;
@@ -315,7 +317,7 @@ _copy_glyph_with_edge(int img_w, int img_h, struct rect* rect,
 	for (int i = 0; i < out_spans->sz; ++i) {
 		struct span* out_span = &out_spans->items[i];
 		for (int w = 0; w < out_span->width; ++w) {
-			int index = (int)((out_span->y - rect->ymin) * img_w + out_span->x - rect->xmin + w);
+			int index = (int)((out_span->y - img_y) * img_w + out_span->x - img_x + w);
 			union gtxt_color* p = &BUF[index];
 			*p = edge_color;
 			p->a = out_span->coverage;
@@ -327,7 +329,7 @@ _copy_glyph_with_edge(int img_w, int img_h, struct rect* rect,
 	for (int i = 0; i < in_spans->sz; ++i) {
 		struct span* s = &in_spans->items[i];
 		for (int w = 0; w < s->width; ++w) {
-			int index = (s->y - rect->ymin) * img_w + s->x - rect->xmin + w;
+			int index = (s->y - img_y) * img_w + s->x - img_x + w;
 			union gtxt_color* dst = &BUF[index];
 			union gtxt_color src = font_color;
 			src.a = s->coverage;
