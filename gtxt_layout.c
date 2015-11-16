@@ -27,6 +27,7 @@ struct glyph {
 struct row {
 	float width;
 	float height;
+	float ymax, ymin;
 
 	struct glyph *head, *tail;
 
@@ -200,6 +201,7 @@ gtxt_layout_end() {
 		last_tail = r->tail;
 
 		r->width = r->height = 0;
+		r->ymax = r->ymin = 0;
 		r->head = NULL;
 		r->tail = NULL;
 
@@ -291,6 +293,12 @@ gtxt_layout_single(int unicode, struct gtxt_richtext_style* style) {
 	if (g_layout->metrics_height > L.curr_row->height) {
 		L.curr_row->height = g_layout->metrics_height;
 	}
+	if (g_layout->bearing_y > L.curr_row->ymax) {
+		L.curr_row->ymax = g_layout->bearing_y;
+	}
+	if (g_layout->bearing_y - g_layout->sizer.height < L.curr_row->ymin) {
+		L.curr_row->ymin = g_layout->bearing_y - g_layout->sizer.height;
+	}
 	L.curr_row->width += w;
 
 	_add_glyph(g);
@@ -320,6 +328,9 @@ gtxt_layout_ext_sym(int width, int height) {
 	if (height > L.curr_row->height) {
 		L.curr_row->height = height;
 	}
+	if (height > L.curr_row->ymax) {
+		L.curr_row->ymax = height;
+	}
 	L.curr_row->width += width;
 
 	struct glyph* g = _new_glyph();
@@ -339,19 +350,38 @@ void
 gtxt_layout_traverse(void (*cb)(int unicode, float x, float y, float w, float h, void* ud), void* ud) {
 	float x, y;
 
-	float tot_height = L.tot_height + L.curr_row->height;
-	switch (L.style->align_v) {
-	case VA_TOP: case VA_AUTO:
-		y = L.style->height * 0.5f;
-		break;
-	case VA_BOTTOM:
-		y = -L.style->height * 0.5f + tot_height;
-		break;
-	case VA_CENTER:
-		y = tot_height * 0.5f;
-		break;
-	default:
-		assert(0);
+	if (L.head->next) {
+		float tot_height = L.tot_height + L.curr_row->height;
+	 	switch (L.style->align_v) {
+	 	case VA_TOP: case VA_AUTO:
+	 		y = L.style->height * 0.5f - L.head->ymax;
+	 		break;
+	 	case VA_BOTTOM:
+	 		y = -L.style->height * 0.5f + tot_height - L.head->ymax;
+	 		break;
+	 	case VA_CENTER:
+	 		y = tot_height * 0.5f - L.head->ymax;
+	 		break;
+	 	default:
+	 		assert(0);
+	 	}		
+	} else {
+		assert(L.curr_row == L.head);
+		struct row* r = L.head;
+		float tot_height = r->ymax - r->ymin;
+		switch (L.style->align_v) {
+		case VA_TOP: case VA_AUTO:
+			y = L.style->height * 0.5f - r->ymax;
+			break;
+		case VA_BOTTOM:
+			y = -L.style->height * 0.5f - r->ymin;
+			break;
+		case VA_CENTER:
+			y = -tot_height * 0.5f - r->ymin;
+			break;
+		default:
+			assert(0);
+		}
 	}
 
 	struct row* r = L.head;
@@ -370,7 +400,7 @@ gtxt_layout_traverse(void (*cb)(int unicode, float x, float y, float w, float h,
 
 		struct glyph* g = r->head;
 		while (g) {
-			cb(g->unicode, x + g->x + g->w * 0.5f, y + g->y - g->h * 0.5f - r->height, g->w, g->h, ud);
+			cb(g->unicode, x + g->x + g->w * 0.5f, y + g->y - g->h * 0.5f, g->w, g->h, ud);
 			x += g->out_width;
 			g = g->next;
 		}
