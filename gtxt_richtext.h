@@ -12,6 +12,8 @@ extern "C"
 #include <stdint.h>
 #include <stdbool.h>
 
+struct gtxt_label_style;
+
 struct gtxt_richtext_style {
 	struct gtxt_glyph_style gs;
 	void* ext_sym_ud;

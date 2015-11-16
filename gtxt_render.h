@@ -11,6 +11,9 @@ extern "C"
 #include <stdbool.h>
 #include <stdint.h>
 
+struct dtex_cg;
+struct gtxt_glyph_style;
+
 void gtxt_render_init(struct dtex_cg* cg);
 
 void gtxt_draw_glyph(int unicode, struct gtxt_glyph_style* style, float x, float y, float w, float h,
