@@ -260,12 +260,16 @@ gtxt_richtext_parser(const char* str, struct gtxt_label_style* style,
 			while (str[j] != '>' && j < len) {
 				++j;
 			}
-			assert(str[j] == '>');
-			char token[j - i];
-			strncpy(token, &str[i + 1], j - i - 1);
-			token[j - i - 1] = 0;
-			_parser_token(token, &rs);
-			i = j + 1;
+			if (str[j] == '>') {
+				char token[j - i];
+				strncpy(token, &str[i + 1], j - i - 1);
+				token[j - i - 1] = 0;
+				_parser_token(token, &rs);
+				i = j + 1;
+			} else {
+				assert(j == len);
+				return;
+			}
 		} else {
 			int n = cb(&str[i], &rs.style, ud);
 			i += n;
