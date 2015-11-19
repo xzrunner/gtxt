@@ -157,6 +157,7 @@ _layout_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, vo
 static inline void
 _get_layout_result_cb(int unicode, float x, float y, float w, float h, void* ud) {
 	struct draw_richtext_params* params = (struct draw_richtext_params*)ud;
+	assert(params->idx < params->sz);
 	params->result[params->idx].unicode = unicode;
 	params->result[params->idx].x = x;
 	params->result[params->idx].y = y;

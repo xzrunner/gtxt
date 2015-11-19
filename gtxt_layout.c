@@ -194,11 +194,13 @@ gtxt_layout_end() {
 
 	struct glyph* last_tail = NULL;
 	struct row* r = L.head;
-	while (r && r->head) {
-		if (last_tail) {
+	while (r) {
+		if (last_tail && r->head) {
 			last_tail->next = r->head;
 		}
-		last_tail = r->tail;
+		if (r->tail) {
+			last_tail = r->tail;
+		}
 
 		r->width = r->height = 0;
 		r->ymax = r->ymin = 0;
@@ -271,6 +273,9 @@ gtxt_layout_single(int unicode, struct gtxt_richtext_style* style) {
 	struct gtxt_glyph_layout* g_layout = gtxt_glyph_get_layout(unicode, gs);
 	float w = g_layout->advance * L.style->space_h;
 	if (unicode == '\n' || L.curr_row->width + w > L.style->width) {
+		if (L.curr_row->height == 0) {
+			L.curr_row->height = g_layout->metrics_height;
+		}
 		if (!_line_feed()) {
 			return false;
 		}
