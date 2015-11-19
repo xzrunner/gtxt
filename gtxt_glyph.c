@@ -125,6 +125,9 @@ _new_node() {
 		assert(C->glyph_head);
 		struct glyph* g = C->glyph_head;
 		C->glyph_head = g->next;
+		if (!C->glyph_head) {
+			C->glyph_tail = NULL;
+		}
 
 		dtex_hash_remove(C->hash, &g->key);
 		if (g->bitmap) {
