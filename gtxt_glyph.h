@@ -33,7 +33,6 @@ struct gtxt_glyph_style {
 };
 
 void gtxt_glyph_cache_init(int cap_bitmap, int cap_layout);
-//void gtxt_glyph_cache_clear();
 
 struct gtxt_glyph_layout* gtxt_glyph_get_layout(int unicode, struct gtxt_glyph_style*);
 

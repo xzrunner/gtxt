@@ -13,6 +13,8 @@ struct glyph_key {
 };
 
 struct glyph_bitmap {
+	int version;
+
 	bool valid;
 
 	uint32_t* buf;
@@ -25,6 +27,7 @@ struct glyph {
 	struct glyph_key key;
 
 	struct glyph_bitmap* bitmap;
+	int bmp_version;
 	struct gtxt_glyph_layout layout; 
 
 	struct glyph *prev, *next;
@@ -124,10 +127,11 @@ _new_node() {
 		C->glyph_head = g->next;
 
 		dtex_hash_remove(C->hash, &g->key);
-		if (g->bitmap && g->bitmap->valid) {
+		if (g->bitmap) {
 			g->bitmap->valid = false;
 			g->bitmap->next = C->bitmap_freelist;
 			C->bitmap_freelist = g->bitmap;
+			g->bitmap = NULL;
 		}
 		g->prev = g->next = NULL;
 
@@ -142,6 +146,11 @@ _new_node() {
 		assert(!C->glyph_tail);
 		C->glyph_head = C->glyph_tail = g;
 		g->prev = g->next = NULL;
+	}
+
+	if (g->bitmap) {
+		g->bitmap->valid = false;
+		g->bmp_version = 0;
 	}
 
 	return g;
@@ -185,23 +194,29 @@ gtxt_glyph_get_bitmap(int unicode, struct gtxt_glyph_style* style, struct gtxt_g
 		*layout = g->layout;
 	} else {
 		g = _new_node();
-		g->bitmap->valid = false;
-
 		g->key = key;
 		dtex_hash_insert(C->hash, &g->key, g, true);
+	}
+
+	if (g->bitmap && g->bitmap->version != g->bmp_version) {
+		g->bitmap = NULL;
+		g->bmp_version = 0;
 	}
 
 	if (!g->bitmap) {
 		if (!C->bitmap_freelist) {
 			assert(C->bitmap_head);
 			struct glyph_bitmap* bmp = C->bitmap_head;
+			++bmp->version;
+
 			C->bitmap_head = bmp->next;
 
-			bmp->valid = false;
 			bmp->next = C->bitmap_freelist;
 			C->bitmap_freelist = bmp;
 		}
 		g->bitmap = C->bitmap_freelist;
+		g->bmp_version = g->bitmap->version;
+
 		C->bitmap_freelist = C->bitmap_freelist->next;
 		g->bitmap->valid = false;
 	}
