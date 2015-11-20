@@ -14,6 +14,10 @@ gtxt_render_init(struct dtex_cg* cg) {
 void
 gtxt_draw_glyph(int unicode, struct gtxt_glyph_style* style, float x, float y, float w, float h,
 				void (*render)(int id, float* texcoords, float x, float y, float w, float h, void* ud), void* ud) {
+	if (unicode == ' ' || unicode == '\n') {
+		return;
+	}
+
 	struct dtex_glyph g;
 	g.unicode		= unicode;
 	g.s.font		= style->font;

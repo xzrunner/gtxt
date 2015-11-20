@@ -212,6 +212,10 @@ _draw_with_edge(struct font* font, FT_UInt gindex, union gtxt_color font_color,
 		return false;
 	}
 
+	layout->bearing_x = ft_face->glyph->metrics.horiBearingX >> 6;
+	layout->bearing_y = ft_face->glyph->metrics.horiBearingY >> 6;
+	layout->advance = ft_face->glyph->metrics.horiAdvance >> 6;
+
 	FT_Glyph_StrokeBorder(&glyph, stroker, 0, 1);
 	// Again, this needs to be an outline to work.
 	if (glyph->format == FT_GLYPH_FORMAT_OUTLINE)
@@ -242,10 +246,6 @@ _draw_with_edge(struct font* font, FT_UInt gindex, union gtxt_color font_color,
 		_rect_merge_point(&rect, s->x, s->y);
 		_rect_merge_point(&rect, s->x + s->width - 1, s->y);
 	}
-
-	layout->bearing_x = ft_face->glyph->metrics.horiBearingX >> 6;
-	layout->bearing_y = ft_face->glyph->metrics.horiBearingY >> 6;
-	layout->advance = ft_face->glyph->metrics.horiAdvance >> 6;
 
 	int img_w = _rect_width(&rect),
 		img_h = _rect_height(&rect);
@@ -288,6 +288,10 @@ _load_glyph_to_bitmap(int unicode, struct gtxt_glyph_style* style, struct gtxt_g
 		return false;
 	}
 
+	if (unicode == ' ' || unicode == '\n') {
+		edge_cb = NULL;
+		default_cb = NULL;
+	}
 	if (style->edge) {
 		return _draw_with_edge(sfont, gindex, style->font_color, style->edge_size, style->edge_color, layout, edge_cb);
 	} else {
