@@ -2,7 +2,6 @@
 #include "gtxt_glyph.h"
 
 #include <dtex_cg.h>
-#include <dtex_ej_glyph.h>
 
 static struct dtex_cg* CG;
 
