@@ -1,7 +1,7 @@
 #include "gtxt_label.h"
 #include "gtxt_layout.h"
 #include "gtxt_richtext.h"
-#include "gtxt_render.h"
+#include "gtxt_adapter.h"
 
 #include <dtex_array.h>
 
@@ -197,4 +197,34 @@ gtxt_label_draw_richtext(const char* str, struct gtxt_label_style* style,
 	gtxt_richtext_parser(str, style, _draw_richtext_glyph_cb, &params);	// layout
 
 	dtex_array_clear(UNICODE_BUF);
+}
+
+void 
+gtxt_label_reload(const char* str, struct gtxt_label_style* style) {
+ 	int str_len = strlen(str);
+ 	for (int i = 0; i < str_len; ) {
+ 		int len = _unicode_len(str[i]);
+ 		int unicode = _get_unicode(str + i, len);
+		gtxt_reload_glyph(unicode, &style->gs);
+ 		i += len;
+ 	}
+}
+
+static inline int
+_reload_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void* ud) {
+	int len = _unicode_len(str[0]);
+	int unicode = _get_unicode(str, len);
+	if (unicode == '\n') {
+		;
+	} else if (style->ext_sym_ud) {
+		;
+	} else {
+		gtxt_reload_glyph(unicode, &style->gs);
+	}
+	return len;
+}
+
+void 
+gtxt_label_reload_richtext(const char* str, struct gtxt_label_style* style) {
+	gtxt_richtext_parser(str, style, _reload_richtext_glyph_cb, NULL);
 }
