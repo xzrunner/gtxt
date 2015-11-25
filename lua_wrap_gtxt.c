@@ -1,4 +1,4 @@
-#include "gtxt_render.h"
+#include "gtxt_adapter.h"
 #include "gtxt_freetype.h"
 #include "gtxt_glyph.h"
 #include "gtxt_richtext.h"
@@ -48,7 +48,7 @@ linit(lua_State* L) {
 	int cap_layout = luaL_optinteger(L, 2, 500);
 	
 	struct dtex_cg* cg = dtexf_get_cg();
-	gtxt_render_init(cg);
+	gtxt_adapter_init(cg);
 
 	gtxt_ft_init();
 
