@@ -374,6 +374,9 @@ gtxt_ft_get_layout(int unicode, struct gtxt_glyph_style* style, struct gtxt_glyp
 
 uint32_t* 
 gtxt_ft_gen_char(int unicode, struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) {
+	if (FT->count == 0) {
+		return NULL;
+	}
 	bool succ = _load_glyph_to_bitmap(unicode, style, layout, _copy_glyph_default, _copy_glyph_with_edge);
 	return succ ? (uint32_t*)BUF : NULL;
 }

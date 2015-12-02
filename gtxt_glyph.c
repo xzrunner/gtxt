@@ -45,6 +45,8 @@ struct glyph_cache {
 
 static struct glyph_cache* C;
 
+static uint32_t* (*CHAR_GEN)(const char* str, struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) = NULL;
+
 static inline unsigned int 
 _hash_func(int hash_sz, void* key) {
 	struct glyph_key* hk = (struct glyph_key*)key;
@@ -88,7 +90,10 @@ _equal_func(void* key0, void* key1) {
 }
 
 void 
-gtxt_glyph_cache_init(int cap_bitmap, int cap_layout) {
+gtxt_glyph_init(int cap_bitmap, int cap_layout,
+				uint32_t* (*char_gen)(const char* str, struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout)) {
+	CHAR_GEN = char_gen;
+
 	size_t bitmap_sz = sizeof(struct glyph_bitmap) * cap_bitmap;
 	size_t layout_sz = sizeof(struct glyph) * cap_layout;
 	size_t sz = sizeof(struct glyph_cache) + bitmap_sz + layout_sz;
@@ -225,6 +230,12 @@ gtxt_glyph_get_bitmap(int unicode, struct gtxt_glyph_style* style, struct gtxt_g
 	}
 	if (!g->bitmap->valid) {
 		uint32_t* buf = gtxt_ft_gen_char(unicode, style, &g->layout);
+		if (!buf && CHAR_GEN) {
+			buf = CHAR_GEN("", style, &g->layout);
+		}
+		if (!buf) {
+			return NULL;
+		}
 		*layout = g->layout;
 		size_t sz = g->layout.sizer.width * g->layout.sizer.height * sizeof(uint32_t);
 		if (sz > g->bitmap->sz) {
