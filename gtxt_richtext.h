@@ -19,6 +19,8 @@ struct gtxt_richtext_style {
 	void* ext_sym_ud;
 };
 
+void gtxt_richtext_add_color(const char* key, unsigned int val);
+
 void gtxt_richtext_add_font(const char* name);
 
 void gtxt_richtext_ext_sym_cb_init(void* (*create)(const char* str),

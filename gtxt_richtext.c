@@ -4,9 +4,11 @@
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #define MAX_LAYER	16
 #define MAX_FONT	16
+#define MAX_COLOR	128
 
 struct edge_style {
 	float size;
@@ -38,11 +40,11 @@ static void (*EXT_SYM_SIZE)(void* ext_sym, int* width, int* height);
 static void (*EXT_SYM_RENDER)(void* ext_sym, float x, float y, void* ud);
 
 struct color_map {
-	char* name;
+	char name[32];
 	union gtxt_color color;
 };
 
-static const struct color_map COLOR[] = {
+static struct color_map COLOR[MAX_COLOR] = {
 	{ "aqua",		0x00ffffff },
 	{ "black",		0x000000ff },
 	{ "blue",		0x0000ffff },
@@ -67,6 +69,20 @@ static const struct color_map COLOR[] = {
 	{ "yellow",		0xffff00ff }
 };
 
+static int COLOR_SIZE = 22;
+
+void 
+gtxt_richtext_add_color(const char* key, unsigned int val) {
+	if (COLOR_SIZE >= MAX_COLOR) {
+		printf("gtxt_richtext_add_color COLOR_SIZE over %d !\n", MAX_COLOR);
+		return;
+	}
+
+	struct color_map* cm = &COLOR[COLOR_SIZE++];
+	strcpy(cm->name, key);
+	cm->color.integer = val;
+}
+
 static inline union gtxt_color
 _parser_color(const char* token, char** end_ptr) {
 	union gtxt_color col;
@@ -74,8 +90,7 @@ _parser_color(const char* token, char** end_ptr) {
 	if (token[0] == '#') {
 		col.integer = strtoul(&token[1], end_ptr, 16);
 	} else {
-		int num = sizeof(COLOR) / sizeof(struct color_map);
-		for (int i = 0; i < num; ++i) {
+		for (int i = 0; i < COLOR_SIZE; ++i) {
 			if (strncmp(&token[0], COLOR[i].name, strlen(COLOR[i].name)) == 0) {
 				col = COLOR[i].color;
 				if (end_ptr) {
@@ -90,6 +105,11 @@ _parser_color(const char* token, char** end_ptr) {
 
 void 
 gtxt_richtext_add_font(const char* name) {
+	if (FONT_SIZE >= MAX_FONT) {
+		printf("gtxt_richtext_add_font FONT_SIZE over %d !\n", MAX_FONT);
+		return;
+	}
+
 	strcpy(&FONTS[FONT_SIZE][0], name);
 	FONTS[FONT_SIZE][strlen(name) + 1] = 0;
 	++FONT_SIZE;
