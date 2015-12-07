@@ -67,11 +67,20 @@ ladd_font(lua_State* L) {
 	return 0;
 }
 
+static int
+ladd_color(lua_State* L) {
+	const char* key = luaL_checkstring(L, 1);
+	unsigned int val = lua_tointeger(L, 2);
+	gtxt_richtext_add_color(key, val);
+	return 0;
+}
+
 int
 luaopen_gtxt_c(lua_State* L) {
 	luaL_Reg l[] = {
 		{ "init", linit },
 		{ "add_font", ladd_font },
+		{ "add_color", ladd_color },
 
 		{ NULL, NULL },		
 	};
