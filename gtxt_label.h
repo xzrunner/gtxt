@@ -44,6 +44,8 @@ void gtxt_label_draw_richtext(const char* str, struct gtxt_label_style* style, v
 void gtxt_label_reload(const char* str, struct gtxt_label_style* style);
 void gtxt_label_reload_richtext(const char* str, struct gtxt_label_style* style);
 
+void* gtxt_label_point_query(const char* str, struct gtxt_label_style* style, int x, int y, void* ud);
+
 #endif // gametext_label_h
 
 #ifdef __cplusplus

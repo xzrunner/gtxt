@@ -38,6 +38,7 @@ static void* (*EXT_SYM_CREATE)(const char* str);
 static void (*EXT_SYM_RELEASE)(void* ext_sym);
 static void (*EXT_SYM_SIZE)(void* ext_sym, int* width, int* height);
 static void (*EXT_SYM_RENDER)(void* ext_sym, float x, float y, void* ud);
+static bool (*EXT_SYM_QUERY)(void* ext_sym, float x, float y, float w, float h, int qx, int qy, void* ud);
 
 struct color_map {
 	char name[32];
@@ -119,11 +120,13 @@ void
 gtxt_richtext_ext_sym_cb_init(void* (*create)(const char* str),
 							  void (*release)(void* ext_sym),
 							  void (*size)(void* ext_sym, int* width, int* height), 
-							  void (*render)(void* ext_sym, float x, float y, void* ud)) {
+							  void (*render)(void* ext_sym, float x, float y, void* ud),
+							  bool (*query)(void* ext_sym, float x, float y, float w, float h, int qx, int qy, void* ud)) {
 	EXT_SYM_CREATE = create;
 	EXT_SYM_RELEASE = release;
 	EXT_SYM_SIZE = size;
 	EXT_SYM_RENDER = render;
+	EXT_SYM_QUERY = query;
 }
 
 void 
@@ -134,6 +137,11 @@ gtxt_ext_sym_get_size(void* ext_sym, int* width, int* height) {
 void 
 gtxt_ext_sym_render(void* ext_sym, float x, float y, void* ud) {
 	EXT_SYM_RENDER(ext_sym, x, y, ud);
+}
+
+bool 
+gtxt_ext_sym_query(void* ext_sym, float x, float y, float w, float h, int qx, int qy, void* ud) {
+	return EXT_SYM_QUERY(ext_sym, x, y, w, h, qx, qy, ud);
 }
 
 static inline int
@@ -292,6 +300,9 @@ gtxt_richtext_parser(const char* str, struct gtxt_label_style* style,
 			}
 		} else {
 			int n = cb(&str[i], &rs.style, ud);
+			if (n == 0) {
+				break;
+			}
 			i += n;
 		}
 	}

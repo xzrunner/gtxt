@@ -227,3 +227,78 @@ void
 gtxt_label_reload_richtext(const char* str, struct gtxt_label_style* style) {
 	gtxt_richtext_parser(str, style, _reload_richtext_glyph_cb, NULL);
 }
+
+struct query_richtext_params {
+	struct layout_pos* result;
+	int sz;
+	int idx;
+
+	int qx, qy;
+
+	void* ud;
+
+	void* ret_ext_sym;
+};
+
+static inline int
+_query_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void* ud) {
+	int len = _unicode_len(str[0]);
+
+	struct query_richtext_params* params = (struct query_richtext_params*)ud;
+	if (params->idx >= params->sz) {
+		return len;
+	}
+
+	int unicode = _get_unicode(str, len);
+	if (unicode == '\n') {
+		return len;
+	} else if (style->ext_sym_ud) {
+		struct layout_pos* pos = &params->result[params->idx++];
+		assert(pos->unicode == -1);
+		bool find = gtxt_ext_sym_query(style->ext_sym_ud, pos->x, pos->y, pos->w, pos->h, params->qx, params->qy, params->ud);
+		if (find) {
+			params->ret_ext_sym = style->ext_sym_ud;
+			return 0;
+		}
+	} else {
+		++params->idx;
+	}
+
+	return len;
+}
+
+void* 
+gtxt_label_point_query(const char* str, struct gtxt_label_style* style, int x, int y, void* ud) {
+	if (!UNICODE_BUF) {
+		UNICODE_BUF = dtex_array_create(128, sizeof(int));
+	}
+
+	gtxt_layout_begin(style);
+
+	// layout
+	int count = 0;
+	gtxt_richtext_parser(str, style, _layout_richtext_glyph_cb, &count);	// layout
+
+	// get layout
+	struct layout_pos pos[count];
+	struct query_richtext_params params;
+
+	params.result = pos;
+	params.sz = count;
+	params.idx = 0;
+	params.qx = x;
+	params.qy = y;
+	params.ud = ud;
+	params.ret_ext_sym = NULL;
+	gtxt_layout_traverse(_get_layout_result_cb, &params);
+
+	gtxt_layout_end();
+
+	// query
+	params.idx = 0;
+	gtxt_richtext_parser(str, style, _query_richtext_glyph_cb, &params);	// layout
+
+	dtex_array_clear(UNICODE_BUF);
+
+	return params.ret_ext_sym;
+}
