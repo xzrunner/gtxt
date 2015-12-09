@@ -92,7 +92,7 @@ _draw_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void
 		return len;
 	} else if (style->ext_sym_ud) {
 		struct layout_pos* pos = &params->result[params->idx++];
-		assert(unicode == ' ' && pos->unicode == -1);	
+		assert(pos->unicode == -1);
 		gtxt_ext_sym_render(style->ext_sym_ud, pos->x, pos->y, params->ud);
 	} else {
 		struct layout_pos* pos = &params->result[params->idx++];
@@ -138,7 +138,6 @@ _layout_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, vo
 
 	bool succ = false;
 	if (style->ext_sym_ud) {
-		assert(unicode == ' ');		
 		int w, h;
 		gtxt_ext_sym_get_size(style->ext_sym_ud, &w, &h);
 		gtxt_layout_ext_sym(w, h);
