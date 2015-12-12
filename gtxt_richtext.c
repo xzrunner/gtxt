@@ -15,6 +15,21 @@ struct edge_style {
 	union gtxt_color color;
 };
 
+struct dynamic_draw_style {
+	bool enable;
+
+ 	float alpha_start;
+ 	float alpha_glyph_dt;
+ 	float alpha_time_dt;
+ 
+ 	float scale_start;
+ 	float scale_glyph_dt;
+ 	float scale_time_dt;
+
+	int glyph_count;
+	int time_count;
+};
+
 struct richtext_state {
 	int font[MAX_LAYER];
 	int font_layer;
@@ -28,7 +43,9 @@ struct richtext_state {
 	struct edge_style edge[MAX_LAYER];
 	int edge_layer;
 
-	struct gtxt_richtext_style style;
+	struct gtxt_richtext_style s;
+
+	struct dynamic_draw_style dds;
 };
 
 static char FONTS[MAX_FONT][128];
@@ -167,6 +184,22 @@ _parser_edge(const char* token, struct edge_style* es) {
 	}
 }
 
+static inline void
+_parser_dynamic(const char* token, struct dynamic_draw_style* s) {
+	s->enable = true;
+
+	s->alpha_start = 1.0f;
+	s->alpha_glyph_dt = 1.1f;
+	s->alpha_time_dt = 0.8f;
+
+	s->scale_start = 1.0f;
+	s->scale_glyph_dt = 1.0f;
+	s->scale_time_dt = 0.8f;
+
+	s->glyph_count = 0;
+	s->time_count = 0;
+}
+
 #define STATE_PUSH(buf, layer, val, ret) { \
 	if ((layer) < MAX_LAYER) { \
 	(buf)[(layer)++] = (val); \
@@ -191,23 +224,23 @@ _parser_token(const char* token, struct richtext_state* rs) {
 	// font
 	if (strncmp(token, "font", strlen("font")) == 0) {
 		int font = _parser_font(&token[strlen("font")+1]);
-		STATE_PUSH(rs->font, rs->font_layer, font, rs->style.gs.font)
+		STATE_PUSH(rs->font, rs->font_layer, font, rs->s.gs.font)
 	} else if (strncmp(token, "/font", strlen("/font")) == 0) {
-		STATE_POP(rs->font, rs->font_layer, rs->style.gs.font);		
+		STATE_POP(rs->font, rs->font_layer, rs->s.gs.font);		
 	}	
 	// size
 	else if (strncmp(token, "size", strlen("size")) == 0) {
 		int size = strtol(&token[strlen("size")+1], (char**)NULL, 10);
-		STATE_PUSH(rs->size, rs->size_layer, size, rs->style.gs.font_size)
+		STATE_PUSH(rs->size, rs->size_layer, size, rs->s.gs.font_size)
 	} else if (strncmp(token, "/size", strlen("/size")) == 0) {
-		STATE_POP(rs->size, rs->size_layer, rs->style.gs.font_size);				
+		STATE_POP(rs->size, rs->size_layer, rs->s.gs.font_size);				
 	}
 	// color
 	else if (strncmp(token, "color", strlen("color")) == 0) {
 		union gtxt_color col = _parser_color(&token[strlen("color")+1], NULL);
-		STATE_PUSH(rs->color, rs->color_layer, col, rs->style.gs.font_color)
+		STATE_PUSH(rs->color, rs->color_layer, col, rs->s.gs.font_color)
 	} else if (strncmp(token, "/color", strlen("/color")) == 0) {
-		STATE_POP(rs->color, rs->color_layer, rs->style.gs.font_color);
+		STATE_POP(rs->color, rs->color_layer, rs->s.gs.font_color);
 	}
 	// edge
 	else if (strncmp(token, "edge", strlen("edge")) == 0) {
@@ -219,9 +252,9 @@ _parser_token(const char* token, struct richtext_state* rs) {
 		}
 		if (rs->edge_layer < MAX_LAYER) {
 			rs->edge[rs->edge_layer++] = es;
-			rs->style.gs.edge = true;
-			rs->style.gs.edge_size = es.size;
-			rs->style.gs.edge_color = es.color;
+			rs->s.gs.edge = true;
+			rs->s.gs.edge_size = es.size;
+			rs->s.gs.edge_color = es.color;
 		} else {
 			++rs->edge_layer;
 		}
@@ -229,26 +262,34 @@ _parser_token(const char* token, struct richtext_state* rs) {
 		--rs->edge_layer;
 		assert(rs->edge_layer >= 0);
 		if (rs->edge_layer == 0) {
-			rs->style.gs.edge = false;
-			rs->style.gs.edge_size = 0;
-			rs->style.gs.edge_color.integer = 0;
+			rs->s.gs.edge = false;
+			rs->s.gs.edge_size = 0;
+			rs->s.gs.edge_color.integer = 0;
 		} else if (rs->edge_layer <= MAX_LAYER) {
-			rs->style.gs.edge = true;
-			rs->style.gs.edge_size = rs->edge[rs->edge_layer-1].size;
-			rs->style.gs.edge_color = rs->edge[rs->edge_layer-1].color;
+			rs->s.gs.edge = true;
+			rs->s.gs.edge_size = rs->edge[rs->edge_layer-1].size;
+			rs->s.gs.edge_color = rs->edge[rs->edge_layer-1].color;
 		} else {
-			rs->style.gs.edge = true;
-			rs->style.gs.edge_size = rs->edge[MAX_LAYER-1].size;
-			rs->style.gs.edge_color = rs->edge[MAX_LAYER-1].color;
+			rs->s.gs.edge = true;
+			rs->s.gs.edge_size = rs->edge[MAX_LAYER-1].size;
+			rs->s.gs.edge_color = rs->edge[MAX_LAYER-1].color;
 		}
 	}
 	// file
 	else if (strncmp(token, "file", strlen("file")) == 0) {
-		assert(!rs->style.ext_sym_ud);
-		rs->style.ext_sym_ud = EXT_SYM_CREATE(&token[strlen("file")+1]);
+		assert(!rs->s.ext_sym_ud);
+		rs->s.ext_sym_ud = EXT_SYM_CREATE(&token[strlen("file")+1]);
 	} else if (strncmp(token, "/file", strlen("/file")) == 0) {
-		EXT_SYM_RELEASE(rs->style.ext_sym_ud);
-		rs->style.ext_sym_ud = NULL;
+		EXT_SYM_RELEASE(rs->s.ext_sym_ud);
+		rs->s.ext_sym_ud = NULL;
+	}
+	// dynamic
+	else if (strncmp(token, "dynamic", strlen("dynamic")) == 0) {
+		_parser_dynamic(token, &rs->dds);
+		rs->s.ds.alpha = rs->dds.alpha_start;
+		rs->s.ds.scale = rs->dds.scale_start;
+	} else if (strncmp(token, "/dynamic", strlen("/dynamic")) == 0) {
+		rs->dds.enable = false;
 	}
 }
 
@@ -271,8 +312,14 @@ _init_state(struct richtext_state* rs, struct gtxt_label_style* style) {
 		rs->edge_layer = 0;
 	}
 
-	rs->style.gs = style->gs;
-	rs->style.ext_sym_ud = NULL;
+	rs->s.gs = style->gs;
+
+	rs->s.ds.alpha = 1;
+	rs->s.ds.scale = 1;
+
+	rs->s.ext_sym_ud = NULL;
+
+	rs->dds.enable = false;
 }
 
 void 
@@ -299,7 +346,46 @@ gtxt_richtext_parser(const char* str, struct gtxt_label_style* style,
 				return;
 			}
 		} else {
-			int n = cb(&str[i], &rs.style, ud);
+			int n = cb(&str[i], &rs.s, ud);
+			if (n == 0) {
+				break;
+			}
+			i += n;
+		}
+	}
+}
+
+void 
+gtxt_richtext_parser_dynamic(const char* str, struct gtxt_label_style* style,
+							 int (*cb)(const char* str, struct gtxt_richtext_style* style, void* ud), void* ud) {
+	struct richtext_state rs;
+	_init_state(&rs, style);
+
+	
+
+	int len = strlen(str);
+	for (int i = 0; i < len; ) {
+		if (str[i] == '<') {
+			int j = i;
+			while (str[j] != '>' && j < len) {
+				++j;
+			}
+			if (str[j] == '>') {
+				char token[j - i];
+				strncpy(token, &str[i + 1], j - i - 1);
+				token[j - i - 1] = 0;
+				_parser_token(token, &rs);
+				i = j + 1;
+			} else {
+				assert(j == len);
+				return;
+			}
+		} else {
+			if (rs.dds.enable) {
+				rs.s.ds.alpha *= rs.dds.alpha_glyph_dt;
+				rs.s.ds.scale *= rs.dds.scale_glyph_dt;
+			}
+			int n = cb(&str[i], &rs.s, ud);
 			if (n == 0) {
 				break;
 			}

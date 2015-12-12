@@ -44,7 +44,7 @@ _unicode_len(const char chr) {
 struct draw_params {
 	struct gtxt_label_style* style;
 
-	void (*render)(int id, float* texcoords, float x, float y, float w, float h, void* ud);
+	void (*render)(int id, float* texcoords, float x, float y, float w, float h, struct gtxt_draw_style* ds, void* ud);
 	void* ud;
 };
 
@@ -60,7 +60,7 @@ _get_unicode(const char* str, int n) {
 static inline void
 _draw_glyph_cb(int unicode, float x, float y, float w, float h, void* ud) {
 	struct draw_params* params = (struct draw_params*)ud;
-	gtxt_draw_glyph(unicode, &params->style->gs, x, y, w, h, params->render, params->ud);
+	gtxt_draw_glyph(unicode, x, y, w, h, &params->style->gs, NULL, params->render, params->ud);
 }
 
 struct layout_pos {
@@ -74,7 +74,7 @@ struct draw_richtext_params {
 	int sz;
 	int idx;
 
-	void (*render)(int id, float* texcoords, float x, float y, float w, float h, void* ud);
+	void (*render)(int id, float* texcoords, float x, float y, float w, float h, struct gtxt_draw_style* ds, void* ud);
 	void* ud;
 };
 
@@ -97,7 +97,7 @@ _draw_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void
 	} else {
 		struct layout_pos* pos = &params->result[params->idx++];
 		assert(pos->unicode == unicode);
-		gtxt_draw_glyph(unicode, &style->gs, pos->x, pos->y, pos->w, pos->h, params->render, params->ud);
+		gtxt_draw_glyph(unicode, pos->x, pos->y, pos->w, pos->h, &style->gs, &style->ds, params->render, params->ud);
 	}
 
 	return len;
@@ -105,7 +105,7 @@ _draw_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void
 
 void 
 gtxt_label_draw(const char* str, struct gtxt_label_style* style,  
-				void (*render)(int id, float* texcoords, float x, float y, float w, float h, void* ud), void* ud) {
+				void (*render)(int id, float* texcoords, float x, float y, float w, float h, struct gtxt_draw_style* ds, void* ud), void* ud) {
 	if (!UNICODE_BUF) {
 		UNICODE_BUF = dtex_array_create(128, sizeof(int));
 	}
@@ -167,7 +167,7 @@ _get_layout_result_cb(int unicode, float x, float y, float w, float h, void* ud)
 
 void 
 gtxt_label_draw_richtext(const char* str, struct gtxt_label_style* style, 
-						 void (*render)(int id, float* texcoords, float x, float y, float w, float h, void* ud), void* ud) {
+						 void (*render)(int id, float* texcoords, float x, float y, float w, float h, struct gtxt_draw_style* ds, void* ud), void* ud) {
 	if (!UNICODE_BUF) {
 		UNICODE_BUF = dtex_array_create(128, sizeof(int));
 	}
@@ -193,7 +193,7 @@ gtxt_label_draw_richtext(const char* str, struct gtxt_label_style* style,
 
 	// draw
 	params.idx = 0;
-	gtxt_richtext_parser(str, style, _draw_richtext_glyph_cb, &params);	// layout
+	gtxt_richtext_parser_dynamic(str, style, _draw_richtext_glyph_cb, &params);	// layout
 
 	dtex_array_clear(UNICODE_BUF);
 }

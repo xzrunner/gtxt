@@ -14,8 +14,14 @@ extern "C"
 
 struct gtxt_label_style;
 
+struct gtxt_draw_style {
+	float alpha;
+	float scale;
+};
+
 struct gtxt_richtext_style {
 	struct gtxt_glyph_style gs;
+	struct gtxt_draw_style ds;
 	void* ext_sym_ud;
 };
 
@@ -34,6 +40,9 @@ bool gtxt_ext_sym_query(void* ext_sym, float x, float y, float w, float h, int q
 
 void gtxt_richtext_parser(const char* str, struct gtxt_label_style* style, 
 						  int (*cb)(const char* str, struct gtxt_richtext_style* style, void* ud), void* ud);
+
+void gtxt_richtext_parser_dynamic(const char* str, struct gtxt_label_style* style,
+								  int (*cb)(const char* str, struct gtxt_richtext_style* style, void* ud), void* ud);
 
 #endif // gametext_richtext_h
 
