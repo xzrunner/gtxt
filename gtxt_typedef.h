@@ -27,6 +27,9 @@ union gtxt_color {
 	};
 };
 
+#define MAX(a, b) ( ((a)>(b))?(a):(b) )
+#define MIN(a, b) ( ((a)<(b))?(a):(b) )
+
 #endif // gametext_typedef_h
 
 #ifdef __cplusplus

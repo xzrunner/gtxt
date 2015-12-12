@@ -15,19 +15,18 @@ struct edge_style {
 	union gtxt_color color;
 };
 
+struct dynamic_value {
+	float start;
+	float max, min;
+
+	float glyph_dt;
+	float time_dt;
+};
+
 struct dynamic_draw_style {
 	bool enable;
-
- 	float alpha_start;
- 	float alpha_glyph_dt;
- 	float alpha_time_dt;
- 
- 	float scale_start;
- 	float scale_glyph_dt;
- 	float scale_time_dt;
-
-	int glyph_count;
-	int time_count;
+	struct dynamic_value alpha;
+	struct dynamic_value scale;
 };
 
 struct richtext_state {
@@ -175,7 +174,7 @@ static inline void
 _parser_edge(const char* token, struct edge_style* es) {
 	char* end;
 	if (strncmp(token, "size=", strlen("size=")) == 0) {
-		es->size = strtod(&token[strlen("size=")], &end );
+		es->size = strtod(&token[strlen("size=")], &end);
 	} else if (strncmp(token, "color=", strlen("color=")) == 0) {
 		es->color = _parser_color(&token[strlen("color=")], &end);
 	}
@@ -185,19 +184,30 @@ _parser_edge(const char* token, struct edge_style* es) {
 }
 
 static inline void
+_parser_dynamic_value(const char* token, struct dynamic_value* val) {
+	const char* end = token;
+	val->start = strtod(end + 1 + strlen("start="), &end);
+	val->max = strtod(end + 1 + strlen("max="), &end);
+	val->min = strtod(end + 1 + strlen("min="), &end);
+	val->glyph_dt = strtod(end + 1 + strlen("glyph_dt="), &end);
+	val->time_dt = strtod(end + 1 + strlen("time_dt="), &end);
+}
+
+static inline void
 _parser_dynamic(const char* token, struct dynamic_draw_style* s) {
 	s->enable = true;
 
-	s->alpha_start = 1.0f;
-	s->alpha_glyph_dt = 1.1f;
-	s->alpha_time_dt = 0.8f;
+	s->alpha.start = s->alpha.max = s->alpha.min = 1;
+	s->alpha.glyph_dt = s->alpha.time_dt = 0;
 
-	s->scale_start = 1.0f;
-	s->scale_glyph_dt = 1.0f;
-	s->scale_time_dt = 0.8f;
+	s->scale.start = s->scale.max = s->scale.min = 1;
+	s->scale.glyph_dt = s->scale.time_dt = 0;
 
-	s->glyph_count = 0;
-	s->time_count = 0;
+	if (strncmp(token, "dynamic=alpha", strlen("dynamic=alpha")) == 0) {
+		_parser_dynamic_value(&token[strlen("dynamic=alpha")], &s->alpha);
+	} else if (strncmp(token, "dynamic=scale", strlen("dynamic=scale")) == 0) {
+		_parser_dynamic_value(&token[strlen("dynamic=scale")], &s->scale);
+	}
 }
 
 #define STATE_PUSH(buf, layer, val, ret) { \
@@ -286,8 +296,6 @@ _parser_token(const char* token, struct richtext_state* rs) {
 	// dynamic
 	else if (strncmp(token, "dynamic", strlen("dynamic")) == 0) {
 		_parser_dynamic(token, &rs->dds);
-		rs->s.ds.alpha = rs->dds.alpha_start;
-		rs->s.ds.scale = rs->dds.scale_start;
 	} else if (strncmp(token, "/dynamic", strlen("/dynamic")) == 0) {
 		rs->dds.enable = false;
 	}
@@ -322,6 +330,25 @@ _init_state(struct richtext_state* rs, struct gtxt_label_style* style) {
 	rs->dds.enable = false;
 }
 
+static int
+_read_token(const char* str, int ptr, int len, struct richtext_state* rs) {
+	assert(str[ptr]);
+	int curr = ptr;
+	while (str[curr] != '>' && curr < len) {
+		++curr;
+	}
+	if (str[curr] == '>') {
+		char token[curr - ptr];
+		strncpy(token, &str[ptr + 1], curr - ptr - 1);
+		token[curr - ptr - 1] = 0;
+		_parser_token(token, rs);
+		curr = curr + 1;
+	} else {
+		assert(curr == len);
+	}
+	return curr;
+}
+
 void 
 gtxt_richtext_parser(const char* str, struct gtxt_label_style* style, 
 					 int (*cb)(const char* str, struct gtxt_richtext_style* style, void* ud), void* ud) {
@@ -331,20 +358,7 @@ gtxt_richtext_parser(const char* str, struct gtxt_label_style* style,
 	int len = strlen(str);
 	for (int i = 0; i < len; ) {
 		if (str[i] == '<') {
-			int j = i;
-			while (str[j] != '>' && j < len) {
-				++j;
-			}
-			if (str[j] == '>') {
-				char token[j - i];
-				strncpy(token, &str[i + 1], j - i - 1);
-				token[j - i - 1] = 0;
-				_parser_token(token, &rs);
-				i = j + 1;
-			} else {
-				assert(j == len);
-				return;
-			}
+			i = _read_token(str, i, len, &rs);
 		} else {
 			int n = cb(&str[i], &rs.s, ud);
 			if (n == 0) {
@@ -355,35 +369,32 @@ gtxt_richtext_parser(const char* str, struct gtxt_label_style* style,
 	}
 }
 
+static inline float
+_cal_dynamic_val(struct dynamic_value* val, int time, int glyph) {
+	float ret = val->start + val->time_dt * time + val->glyph_dt * glyph;
+	return MIN(val->max, MAX(val->min, ret));
+}
+
 void 
-gtxt_richtext_parser_dynamic(const char* str, struct gtxt_label_style* style,
+gtxt_richtext_parser_dynamic(const char* str, struct gtxt_label_style* style, int time,
 							 int (*cb)(const char* str, struct gtxt_richtext_style* style, void* ud), void* ud) {
 	struct richtext_state rs;
 	_init_state(&rs, style);
 
-	
-
 	int len = strlen(str);
+	int glyph = 0;
 	for (int i = 0; i < len; ) {
 		if (str[i] == '<') {
-			int j = i;
-			while (str[j] != '>' && j < len) {
-				++j;
-			}
-			if (str[j] == '>') {
-				char token[j - i];
-				strncpy(token, &str[i + 1], j - i - 1);
-				token[j - i - 1] = 0;
-				_parser_token(token, &rs);
-				i = j + 1;
-			} else {
-				assert(j == len);
-				return;
-			}
+			i = _read_token(str, i, len, &rs);
 		} else {
 			if (rs.dds.enable) {
-				rs.s.ds.alpha *= rs.dds.alpha_glyph_dt;
-				rs.s.ds.scale *= rs.dds.scale_glyph_dt;
+				rs.s.ds.alpha = _cal_dynamic_val(&rs.dds.alpha, time, glyph);
+				rs.s.ds.scale = _cal_dynamic_val(&rs.dds.scale, time, glyph);
+				++glyph;
+			} else {
+				rs.s.ds.alpha = 1;
+				rs.s.ds.scale = 1;
+				glyph = 0;
 			}
 			int n = cb(&str[i], &rs.s, ud);
 			if (n == 0) {

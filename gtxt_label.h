@@ -39,7 +39,7 @@ struct gtxt_label_style {
 };
 
 void gtxt_label_draw(const char* str, struct gtxt_label_style* style, void (*render)(int id, float* texcoords, float x, float y, float w, float h, struct gtxt_draw_style* ds, void* ud), void* ud);
-void gtxt_label_draw_richtext(const char* str, struct gtxt_label_style* style, void (*render)(int id, float* texcoords, float x, float y, float w, float h, struct gtxt_draw_style* ds, void* ud), void* ud);
+void gtxt_label_draw_richtext(const char* str, struct gtxt_label_style* style, int time, void (*render)(int id, float* texcoords, float x, float y, float w, float h, struct gtxt_draw_style* ds, void* ud), void* ud);
 
 void gtxt_label_reload(const char* str, struct gtxt_label_style* style);
 void gtxt_label_reload_richtext(const char* str, struct gtxt_label_style* style);

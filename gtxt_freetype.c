@@ -17,9 +17,6 @@
 #include <ftstroke.h>
 #endif // USED_IN_EDITOR
 
-#define MAX(a, b) ( ((a)>(b))?(a):(b) )
-#define MIN(a, b) ( ((a)<(b))?(a):(b) )
-
 struct font {
 	FT_Library library;
 	FT_Face face;
