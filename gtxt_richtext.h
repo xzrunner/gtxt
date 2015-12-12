@@ -17,6 +17,7 @@ struct gtxt_label_style;
 struct gtxt_draw_style {
 	float alpha;
 	float scale;
+	float offset_x, offset_y;
 };
 
 struct gtxt_richtext_style {

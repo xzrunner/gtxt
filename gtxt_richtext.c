@@ -27,6 +27,7 @@ struct dynamic_draw_style {
 	bool enable;
 	struct dynamic_value alpha;
 	struct dynamic_value scale;
+	struct dynamic_value offset_x, offset_y;
 };
 
 struct richtext_state {
@@ -203,10 +204,20 @@ _parser_dynamic(const char* token, struct dynamic_draw_style* s) {
 	s->scale.start = s->scale.max = s->scale.min = 1;
 	s->scale.glyph_dt = s->scale.time_dt = 0;
 
+	s->offset_x.start = s->offset_x.max = s->offset_x.min = 0;
+	s->offset_x.glyph_dt = s->offset_x.time_dt = 0;
+
+	s->offset_y.start = s->offset_y.max = s->offset_y.min = 0;
+	s->offset_y.glyph_dt = s->offset_y.time_dt = 0;
+
 	if (strncmp(token, "dynamic=alpha", strlen("dynamic=alpha")) == 0) {
 		_parser_dynamic_value(&token[strlen("dynamic=alpha")], &s->alpha);
 	} else if (strncmp(token, "dynamic=scale", strlen("dynamic=scale")) == 0) {
 		_parser_dynamic_value(&token[strlen("dynamic=scale")], &s->scale);
+	} else if (strncmp(token, "dynamic=offset_x", strlen("dynamic=offset_x")) == 0) {
+		_parser_dynamic_value(&token[strlen("dynamic=offset_x")], &s->offset_x);
+	} else if (strncmp(token, "dynamic=offset_y", strlen("dynamic=offset_y")) == 0) {
+		_parser_dynamic_value(&token[strlen("dynamic=offset_y")], &s->offset_y);
 	}
 }
 
@@ -324,6 +335,7 @@ _init_state(struct richtext_state* rs, struct gtxt_label_style* style) {
 
 	rs->s.ds.alpha = 1;
 	rs->s.ds.scale = 1;
+	rs->s.ds.offset_x = rs->s.ds.offset_y = 0;
 
 	rs->s.ext_sym_ud = NULL;
 
@@ -390,10 +402,13 @@ gtxt_richtext_parser_dynamic(const char* str, struct gtxt_label_style* style, in
 			if (rs.dds.enable) {
 				rs.s.ds.alpha = _cal_dynamic_val(&rs.dds.alpha, time, glyph);
 				rs.s.ds.scale = _cal_dynamic_val(&rs.dds.scale, time, glyph);
+				rs.s.ds.offset_x = _cal_dynamic_val(&rs.dds.offset_x, time, glyph);
+				rs.s.ds.offset_y = _cal_dynamic_val(&rs.dds.offset_y, time, glyph);
 				++glyph;
 			} else {
 				rs.s.ds.alpha = 1;
 				rs.s.ds.scale = 1;
+				rs.s.ds.offset_x = rs.s.ds.offset_y = 0;
 				glyph = 0;
 			}
 			int n = cb(&str[i], &rs.s, ud);
