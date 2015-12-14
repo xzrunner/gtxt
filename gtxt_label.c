@@ -101,6 +101,13 @@ _draw_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void
 		style->ds.row_y = pos->row_y;
 		if (style->ds.row_h == 0) {
 			style->ds.row_h = pos->h;
+		} 
+		if (style->ds.pos_type == GRPT_NULL) {
+			style->ds.pos_type = GRPT_BEGIN;
+		} else if (style->ds.pos_type == GRPT_BEGIN) {
+			style->ds.pos_type = GRPT_MIDDLE;
+		} else if (style->ds.pos_type == GRPT_MIDDLE && str[len] == '<') {
+			style->ds.pos_type = GRPT_END;
 		}
 		gtxt_draw_glyph(unicode, pos->x, pos->y, pos->w, pos->h, &style->gs, &style->ds, params->render, params->ud);
 	}
@@ -299,7 +306,7 @@ gtxt_label_point_query(const char* str, struct gtxt_label_style* style, int x, i
 	params.qy = y;
 	params.ud = ud;
 	params.ret_ext_sym = NULL;
-	gtxt_layout_traverse(_get_layout_result_cb, &params);
+	gtxt_layout_traverse2(_get_layout_result_cb, &params);
 
 	gtxt_layout_end();
 
