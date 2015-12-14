@@ -67,6 +67,7 @@ struct layout_pos {
 	int unicode;
 	float x, y;
 	float w, h;
+	float row_y;
 };
 
 struct draw_richtext_params {
@@ -97,6 +98,10 @@ _draw_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void
 	} else {
 		struct layout_pos* pos = &params->result[params->idx++];
 		assert(pos->unicode == unicode);
+		style->ds.row_y = pos->row_y;
+		if (style->ds.row_h == 0) {
+			style->ds.row_h = pos->h;
+		}
 		gtxt_draw_glyph(unicode, pos->x, pos->y, pos->w, pos->h, &style->gs, &style->ds, params->render, params->ud);
 	}
 
@@ -154,14 +159,18 @@ _layout_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, vo
 }
 
 static inline void
-_get_layout_result_cb(int unicode, float x, float y, float w, float h, void* ud) {
+_get_layout_result_cb(int unicode, float x, float y, float w, float h, float row_y, void* ud) {
 	struct draw_richtext_params* params = (struct draw_richtext_params*)ud;
 	assert(params->idx < params->sz);
-	params->result[params->idx].unicode = unicode;
-	params->result[params->idx].x = x;
-	params->result[params->idx].y = y;
-	params->result[params->idx].w = w;
-	params->result[params->idx].h = h;
+
+	struct layout_pos* pos = &params->result[params->idx];
+	pos->unicode = unicode;
+	pos->x = x;
+	pos->y = y;
+	pos->w = w;
+	pos->h = h;
+	pos->row_y = row_y;
+
 	++params->idx;
 }
 
@@ -187,7 +196,7 @@ gtxt_label_draw_richtext(const char* str, struct gtxt_label_style* style, int ti
 	params.idx = 0;
 	params.render = render;
 	params.ud = ud;
-	gtxt_layout_traverse(_get_layout_result_cb, &params);
+	gtxt_layout_traverse2(_get_layout_result_cb, &params);
 
 	gtxt_layout_end();
 

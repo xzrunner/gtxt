@@ -101,15 +101,20 @@ gtxt_richtext_add_color(const char* key, unsigned int val) {
 	cm->color.integer = val;
 }
 
+static inline bool
+_str_head_equal(const char* str, const char* substr) {
+	return strncmp(str, substr, strlen(substr)) == 0;
+}
+
 static inline union gtxt_color
-_parser_color(const char* token, char** end_ptr) {
+_parser_color(const char* token, const char** end_ptr) {
 	union gtxt_color col;
 	col.integer = 0;
 	if (token[0] == '#') {
 		col.integer = strtoul(&token[1], end_ptr, 16);
 	} else {
 		for (int i = 0; i < COLOR_SIZE; ++i) {
-			if (strncmp(&token[0], COLOR[i].name, strlen(COLOR[i].name)) == 0) {
+			if (_str_head_equal(token, COLOR[i].name)) {
 				col = COLOR[i].color;
 				if (end_ptr) {
 					*end_ptr = &token[strlen(COLOR[i].name)];
@@ -173,10 +178,10 @@ _parser_font(const char* token) {
 
 static inline void 
 _parser_edge(const char* token, struct edge_style* es) {
-	char* end;
-	if (strncmp(token, "size=", strlen("size=")) == 0) {
+	const char* end;
+	if (_str_head_equal(token, "size=")) {
 		es->size = strtod(&token[strlen("size=")], &end);
-	} else if (strncmp(token, "color=", strlen("color=")) == 0) {
+	} else if (_str_head_equal(token, "color=")) {
 		es->color = _parser_color(&token[strlen("color=")], &end);
 	}
 	if (*end) {
@@ -210,14 +215,39 @@ _parser_dynamic(const char* token, struct dynamic_draw_style* s) {
 	s->offset_y.start = s->offset_y.max = s->offset_y.min = 0;
 	s->offset_y.glyph_dt = s->offset_y.time_dt = 0;
 
-	if (strncmp(token, "dynamic=alpha", strlen("dynamic=alpha")) == 0) {
+	if (_str_head_equal(token, "dynamic=alpha")) {
 		_parser_dynamic_value(&token[strlen("dynamic=alpha")], &s->alpha);
-	} else if (strncmp(token, "dynamic=scale", strlen("dynamic=scale")) == 0) {
+	} else if (_str_head_equal(token, "dynamic=scale")) {
 		_parser_dynamic_value(&token[strlen("dynamic=scale")], &s->scale);
-	} else if (strncmp(token, "dynamic=offset_x", strlen("dynamic=offset_x")) == 0) {
+	} else if (_str_head_equal(token, "dynamic=offset_x")) {
 		_parser_dynamic_value(&token[strlen("dynamic=offset_x")], &s->offset_x);
-	} else if (strncmp(token, "dynamic=offset_y", strlen("dynamic=offset_y")) == 0) {
+	} else if (_str_head_equal(token, "dynamic=offset_y")) {
 		_parser_dynamic_value(&token[strlen("dynamic=offset_y")], &s->offset_y);
+	}
+}
+
+static inline void
+_parser_decoration(const char* token, struct gtxt_decoration* d) {
+	const char* ptr = token;
+	if (_str_head_equal(ptr, "overline")) {
+		d->type = DT_OVERLINE;
+		ptr += strlen("overline");
+	} else if (_str_head_equal(ptr, "underline")) {
+		d->type = DT_UNDERLINE;
+		ptr += strlen("underline");
+	} else if (_str_head_equal(ptr, "strikethrough")) {
+		d->type = DT_STRIKETHROUGH;
+		ptr += strlen("strikethrough");
+	} else {
+		return;
+	}
+
+	++ptr;
+	const char* end = ptr;
+	if (_str_head_equal(ptr, "color=")) {
+		d->color = _parser_color(&ptr[strlen("color=")], &end).integer;
+	} else {
+		d->color = 0xffffffff;
 	}
 }
 
@@ -243,28 +273,28 @@ _parser_dynamic(const char* token, struct dynamic_draw_style* s) {
 static inline void
 _parser_token(const char* token, struct richtext_state* rs) {
 	// font
-	if (strncmp(token, "font", strlen("font")) == 0) {
+	if (_str_head_equal(token, "font")) {
 		int font = _parser_font(&token[strlen("font")+1]);
 		STATE_PUSH(rs->font, rs->font_layer, font, rs->s.gs.font)
-	} else if (strncmp(token, "/font", strlen("/font")) == 0) {
+	} else if (_str_head_equal(token, "/font")) {
 		STATE_POP(rs->font, rs->font_layer, rs->s.gs.font);		
 	}	
 	// size
-	else if (strncmp(token, "size", strlen("size")) == 0) {
+	else if (_str_head_equal(token, "size")) {
 		int size = strtol(&token[strlen("size")+1], (char**)NULL, 10);
 		STATE_PUSH(rs->size, rs->size_layer, size, rs->s.gs.font_size)
-	} else if (strncmp(token, "/size", strlen("/size")) == 0) {
+	} else if (_str_head_equal(token, "/size")) {
 		STATE_POP(rs->size, rs->size_layer, rs->s.gs.font_size);				
 	}
 	// color
-	else if (strncmp(token, "color", strlen("color")) == 0) {
+	else if (_str_head_equal(token, "color")) {
 		union gtxt_color col = _parser_color(&token[strlen("color")+1], NULL);
 		STATE_PUSH(rs->color, rs->color_layer, col, rs->s.gs.font_color)
-	} else if (strncmp(token, "/color", strlen("/color")) == 0) {
+	} else if (_str_head_equal(token, "/color")) {
 		STATE_POP(rs->color, rs->color_layer, rs->s.gs.font_color);
 	}
 	// edge
-	else if (strncmp(token, "edge", strlen("edge")) == 0) {
+	else if (_str_head_equal(token, "edge")) {
 		struct edge_style es;
 		es.size = 1;
 		es.color.integer = 0x000000ff;
@@ -279,7 +309,7 @@ _parser_token(const char* token, struct richtext_state* rs) {
 		} else {
 			++rs->edge_layer;
 		}
-	} else if (strncmp(token, "/edge", strlen("/edge")) == 0) {
+	} else if (_str_head_equal(token, "/edge")) {
 		--rs->edge_layer;
 		assert(rs->edge_layer >= 0);
 		if (rs->edge_layer == 0) {
@@ -297,18 +327,25 @@ _parser_token(const char* token, struct richtext_state* rs) {
 		}
 	}
 	// file
-	else if (strncmp(token, "file", strlen("file")) == 0) {
+	else if (_str_head_equal(token, "file")) {
 		assert(!rs->s.ext_sym_ud);
 		rs->s.ext_sym_ud = EXT_SYM_CREATE(&token[strlen("file")+1]);
-	} else if (strncmp(token, "/file", strlen("/file")) == 0) {
+	} else if (_str_head_equal(token, "/file")) {
 		EXT_SYM_RELEASE(rs->s.ext_sym_ud);
 		rs->s.ext_sym_ud = NULL;
 	}
 	// dynamic
-	else if (strncmp(token, "dynamic", strlen("dynamic")) == 0) {
+	else if (_str_head_equal(token, "dynamic")) {
 		_parser_dynamic(token, &rs->dds);
-	} else if (strncmp(token, "/dynamic", strlen("/dynamic")) == 0) {
+	} else if (_str_head_equal(token, "/dynamic")) {
 		rs->dds.enable = false;
+	}
+	// decoration
+	else if (_str_head_equal(token, "decoration=")) {
+		_parser_decoration(&token[strlen("decoration=")], &rs->s.ds.decoration);
+	} else if (_str_head_equal(token, "/decoration")) {
+		rs->s.ds.decoration.type = DT_NULL;
+		rs->s.ds.row_h = 0;
 	}
 }
 
@@ -336,6 +373,8 @@ _init_state(struct richtext_state* rs, struct gtxt_label_style* style) {
 	rs->s.ds.alpha = 1;
 	rs->s.ds.scale = 1;
 	rs->s.ds.offset_x = rs->s.ds.offset_y = 0;
+	rs->s.ds.decoration.type = DT_NULL;
+	rs->s.ds.row_y = rs->s.ds.row_h = 0;
 
 	rs->s.ext_sym_ud = NULL;
 
