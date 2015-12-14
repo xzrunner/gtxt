@@ -230,14 +230,20 @@ static inline void
 _parser_decoration(const char* token, struct gtxt_decoration* d) {
 	const char* ptr = token;
 	if (_str_head_equal(ptr, "overline")) {
-		d->type = DT_OVERLINE;
+		d->type = GRDT_OVERLINE;
 		ptr += strlen("overline");
 	} else if (_str_head_equal(ptr, "underline")) {
-		d->type = DT_UNDERLINE;
+		d->type = GRDT_UNDERLINE;
 		ptr += strlen("underline");
 	} else if (_str_head_equal(ptr, "strikethrough")) {
-		d->type = DT_STRIKETHROUGH;
+		d->type = GRDT_STRIKETHROUGH;
 		ptr += strlen("strikethrough");
+	} else if (_str_head_equal(ptr, "border")) {
+		d->type = GRDT_BORDER;
+		ptr += strlen("border");
+	} else if (_str_head_equal(ptr, "bg")) {
+		d->type = GRDT_BG;
+		ptr += strlen("bg");
 	} else {
 		return;
 	}
@@ -344,7 +350,8 @@ _parser_token(const char* token, struct richtext_state* rs) {
 	else if (_str_head_equal(token, "decoration=")) {
 		_parser_decoration(&token[strlen("decoration=")], &rs->s.ds.decoration);
 	} else if (_str_head_equal(token, "/decoration")) {
-		rs->s.ds.decoration.type = DT_NULL;
+		rs->s.ds.decoration.type = GRDT_NULL;
+		rs->s.ds.pos_type = GRPT_NULL;
 		rs->s.ds.row_h = 0;
 	}
 }
@@ -373,8 +380,9 @@ _init_state(struct richtext_state* rs, struct gtxt_label_style* style) {
 	rs->s.ds.alpha = 1;
 	rs->s.ds.scale = 1;
 	rs->s.ds.offset_x = rs->s.ds.offset_y = 0;
-	rs->s.ds.decoration.type = DT_NULL;
+	rs->s.ds.decoration.type = GRDT_NULL;
 	rs->s.ds.row_y = rs->s.ds.row_h = 0;
+	rs->s.ds.pos_type = GRPT_NULL;
 
 	rs->s.ext_sym_ud = NULL;
 
