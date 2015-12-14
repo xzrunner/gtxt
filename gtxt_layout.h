@@ -20,6 +20,7 @@ void gtxt_layout_multi(struct dtex_array* unicodes);
 bool gtxt_layout_ext_sym(int width, int height);
 
 void gtxt_layout_traverse(void (*cb)(int unicode, float x, float y, float w, float h, void* ud), void* ud);
+void gtxt_layout_traverse2(void (*cb)(int unicode, float x, float y, float w, float h, float row_y, void* ud), void* ud);
 
 void gtxt_layout_end();
 

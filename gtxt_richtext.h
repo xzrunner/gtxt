@@ -14,10 +14,25 @@ extern "C"
 
 struct gtxt_label_style;
 
+enum DECORATION_TYPE {
+	DT_NULL = 0,
+	DT_OVERLINE,
+	DT_UNDERLINE,
+	DT_STRIKETHROUGH,
+};
+
+struct gtxt_decoration {
+	int type;
+	uint32_t color;
+};
+
 struct gtxt_draw_style {
 	float alpha;
 	float scale;
 	float offset_x, offset_y;
+
+	struct gtxt_decoration decoration;
+	float row_y, row_h;
 };
 
 struct gtxt_richtext_style {
