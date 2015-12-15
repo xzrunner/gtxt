@@ -24,6 +24,8 @@ void gtxt_layout_traverse2(void (*cb)(int unicode, float x, float y, float w, fl
 
 void gtxt_layout_end();
 
+void gtxt_get_layout_size(float* width, float* height);
+
 #endif // gametext_layout_h
 
 #ifdef __cplusplus

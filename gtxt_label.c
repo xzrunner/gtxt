@@ -157,7 +157,7 @@ _layout_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, vo
 	} else {
 		succ = gtxt_layout_single(unicode, style);
 	}
-	if (succ) {
+	if (ud && succ) {
 		int* count = (int*)ud;
 		++*count;
 	}
@@ -317,4 +317,12 @@ gtxt_label_point_query(const char* str, struct gtxt_label_style* style, int x, i
 	dtex_array_clear(UNICODE_BUF);
 
 	return params.ret_ext_sym;
+}
+
+void 
+gtxt_get_label_size(const char* str, struct gtxt_label_style* style, float* width, float* height) {
+	gtxt_layout_begin(style);
+	gtxt_richtext_parser(str, style, _layout_richtext_glyph_cb, NULL);
+	gtxt_get_layout_size(width, height);
+	gtxt_layout_end();
 }

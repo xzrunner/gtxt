@@ -369,10 +369,22 @@ _get_start_x(float line_width) {
 }
 
 static float
+_get_tot_height() {
+	float h = 0;
+	if (L.head->next) {
+		h = L.tot_height + L.curr_row->height;
+	} else {
+		assert(L.curr_row == L.head);
+		h = L.head->ymax - L.head->ymin;
+	}
+	return h;
+}
+
+static float
 _get_start_y() {
 	float y;
+	float tot_height = _get_tot_height();
 	if (L.head->next) {
-		float tot_height = L.tot_height + L.curr_row->height;
 		switch (L.style->align_v) {
 		case VA_TOP: case VA_AUTO:
 			y = L.style->height * 0.5f - L.head->ymax;
@@ -387,9 +399,7 @@ _get_start_y() {
 			assert(0);
 		}		
 	} else {
-		assert(L.curr_row == L.head);
 		struct row* r = L.head;
-		float tot_height = r->ymax - r->ymin;
 		switch (L.style->align_v) {
 		case VA_TOP: case VA_AUTO:
 			y = L.style->height * 0.5f - r->ymax;
@@ -440,4 +450,16 @@ gtxt_layout_traverse2(void (*cb)(int unicode, float x, float y, float w, float h
 		y -= row_height;
 		r = r->next;
 	}
+}
+
+void 
+gtxt_get_layout_size(float* width, float* height) {
+	*width = 0;
+	struct row* r = L.head;
+	while (r) {
+		*width = MAX(*width, r->width);
+		r = r->next;
+	}
+
+	*height = _get_tot_height();
 }
