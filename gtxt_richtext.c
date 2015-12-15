@@ -414,7 +414,7 @@ gtxt_richtext_parser(const char* str, struct gtxt_label_style* style,
 	struct richtext_state rs;
 	_init_state(&rs, style);
 
-	int len = strlen(str);
+	int len = (str==NULL)?(0):(strlen(str));
 	for (int i = 0; i < len; ) {
 		if (str[i] == '<') {
 			i = _read_token(str, i, len, &rs);
