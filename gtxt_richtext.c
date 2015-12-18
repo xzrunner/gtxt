@@ -46,6 +46,8 @@ struct richtext_state {
 	struct gtxt_richtext_style s;
 
 	struct dynamic_draw_style dds;
+
+	bool disable;
 };
 
 static char FONTS[MAX_FONT][128];
@@ -354,6 +356,12 @@ _parser_token(const char* token, struct richtext_state* rs) {
 		rs->s.ds.pos_type = GRPT_NULL;
 		rs->s.ds.row_h = 0;
 	}
+	// disable
+	else if (_str_head_equal(token, "plain")) {
+		rs->disable = true;
+	} else if (_str_head_equal(token, "/plain")) {
+		rs->disable = false;
+	}
 }
 
 static inline void
@@ -387,6 +395,8 @@ _init_state(struct richtext_state* rs, struct gtxt_label_style* style) {
 	rs->s.ext_sym_ud = NULL;
 
 	rs->dds.enable = false;
+
+	rs->disable = false;
 }
 
 static int
@@ -416,7 +426,10 @@ gtxt_richtext_parser(const char* str, struct gtxt_label_style* style,
 
 	int len = (str==NULL)?(0):(strlen(str));
 	for (int i = 0; i < len; ) {
-		if (str[i] == '<') {
+		if (_str_head_equal(&str[i], "</plain>")) {
+			rs.disable = false;
+			i += strlen("</plain>");
+		} else if (str[i] == '<' && !rs.disable) {
 			i = _read_token(str, i, len, &rs);
 		} else {
 			int n = cb(&str[i], &rs.s, ud);
@@ -443,7 +456,10 @@ gtxt_richtext_parser_dynamic(const char* str, struct gtxt_label_style* style, in
 	int len = strlen(str);
 	int glyph = 0;
 	for (int i = 0; i < len; ) {
-		if (str[i] == '<') {
+		if (_str_head_equal(&str[i], "</plain>")) {
+			rs.disable = false;
+			i += strlen("</plain>");
+		} else if (str[i] == '<' && !rs.disable) {
 			i = _read_token(str, i, len, &rs);
 		} else {
 			if (rs.dds.enable) {
