@@ -10,7 +10,7 @@ extern "C"
 
 #if (('1234' >> 24) == '1')
 #elif (('4321' >> 24) == '1')
-  #define BIG_ENDIAN
+  #define GTXT_BIG_ENDIAN
 #else
   #error "Couldn't determine the endianness!"
 #endif
@@ -19,7 +19,7 @@ union gtxt_color {
 	uint32_t integer;
 	struct
 	{
-#ifdef BIG_ENDIAN
+#ifdef GTXT_BIG_ENDIAN
 		uint8_t r, g, b, a;
 #else
 		uint8_t a, b, g, r;
