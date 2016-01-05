@@ -39,6 +39,9 @@ gtxt_draw_glyph(int unicode, float x, float y, float w, float h,
 	if (!texcoords) {
 		struct gtxt_glyph_layout layout;
 		uint32_t* buf = gtxt_glyph_get_bitmap(unicode, gs, &layout);
+		if (!buf) {
+			return;
+		}
 		texcoords = dtex_cg_load(CG, buf, layout.sizer.width, layout.sizer.height, &g);
 		if (!texcoords) {
 			return;

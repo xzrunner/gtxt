@@ -136,9 +136,9 @@ _new_node() {
 
 		dtex_hash_remove(C->hash, &g->key);
 		if (g->bitmap) {
-			g->bitmap->valid = false;
-			g->bitmap->next = C->bitmap_freelist;
-			C->bitmap_freelist = g->bitmap;
+// 			g->bitmap->valid = false;
+// 			g->bitmap->next = C->bitmap_freelist;
+// 			C->bitmap_freelist = g->bitmap;
 			g->bitmap = NULL;
 		}
 		g->prev = g->next = NULL;
@@ -216,9 +216,7 @@ gtxt_glyph_get_bitmap(int unicode, struct gtxt_glyph_style* style, struct gtxt_g
 			assert(C->bitmap_head);
 			struct glyph_bitmap* bmp = C->bitmap_head;
 			++bmp->version;
-
 			C->bitmap_head = bmp->next;
-
 			bmp->next = C->bitmap_freelist;
 			C->bitmap_freelist = bmp;
 		}
@@ -228,14 +226,20 @@ gtxt_glyph_get_bitmap(int unicode, struct gtxt_glyph_style* style, struct gtxt_g
 		C->bitmap_freelist = C->bitmap_freelist->next;
 		g->bitmap->valid = false;
 	}
-	if (!g->bitmap->valid) {
-		uint32_t* buf = gtxt_ft_gen_char(unicode, style, &g->layout);
-		if (!buf && CHAR_GEN) {
-			buf = CHAR_GEN("", style, &g->layout);
-		}
-		if (!buf) {
-			return NULL;
-		}
+
+	if (g->bitmap->valid) {
+		return g->bitmap->buf;
+	}
+
+	uint32_t* ret_buf = NULL;
+
+	uint32_t* buf = gtxt_ft_gen_char(unicode, style, &g->layout);
+	if (!buf && CHAR_GEN) {
+		buf = CHAR_GEN("", style, &g->layout);
+	}
+	if (!buf) {
+		ret_buf = NULL;
+	} else {
 		*layout = g->layout;
 		size_t sz = g->layout.sizer.width * g->layout.sizer.height * sizeof(uint32_t);
 		if (sz > g->bitmap->sz) {
@@ -247,15 +251,16 @@ gtxt_glyph_get_bitmap(int unicode, struct gtxt_glyph_style* style, struct gtxt_g
 		memcpy(g->bitmap->buf, buf, sz);
 		g->bitmap->valid = true;
 
-		if (!C->bitmap_tail) {
-			assert(!C->bitmap_head);
-			C->bitmap_head = C->bitmap_tail = g->bitmap;
-		} else {
-			C->bitmap_tail->next = g->bitmap;
-			C->bitmap_tail = g->bitmap;
-		}
-		g->bitmap->next = NULL;
+		ret_buf = g->bitmap->buf;
 	}
+	if (!C->bitmap_tail) {
+		assert(!C->bitmap_head);
+		C->bitmap_head = C->bitmap_tail = g->bitmap;
+	} else {
+		C->bitmap_tail->next = g->bitmap;
+		C->bitmap_tail = g->bitmap;
+	}
+	g->bitmap->next = NULL;
 
-	return g->bitmap->buf;
+	return ret_buf;
 }
