@@ -90,8 +90,8 @@ _equal_func(void* key0, void* key1) {
 }
 
 void 
-gtxt_glyph_init(int cap_bitmap, int cap_layout,
-				uint32_t* (*char_gen)(const char* str, struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout)) {
+gtxt_glyph_create(int cap_bitmap, int cap_layout,
+				  uint32_t* (*char_gen)(const char* str, struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout)) {
 	CHAR_GEN = char_gen;
 
 	size_t bitmap_sz = sizeof(struct glyph_bitmap) * cap_bitmap;
@@ -122,6 +122,24 @@ gtxt_glyph_init(int cap_bitmap, int cap_layout,
 	for (int i = 1; i < cap_layout; ++i) {
 		C->glyph_freelist[i].prev = &C->glyph_freelist[i-1];
 	}
+}
+
+void 
+gtxt_glyph_release() {
+	struct glyph_bitmap* bmp = C->bitmap_freelist;
+	while (bmp) {
+		free(bmp->buf); bmp->buf = NULL;
+		bmp->sz = 0;
+		bmp = bmp->next;
+	}
+	bmp = C->bitmap_head;
+	while (bmp != C->bitmap_tail) {
+		free(bmp->buf); bmp->buf = NULL;
+		bmp->sz = 0;
+		bmp = bmp->next;
+	}
+
+	free(C); C = NULL;
 }
 
 static inline struct glyph*

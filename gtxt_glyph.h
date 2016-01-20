@@ -32,7 +32,8 @@ struct gtxt_glyph_style {
 	union gtxt_color edge_color;
 };
 
-void gtxt_glyph_init(int cap_bitmap, int cap_layout, uint32_t* (*char_gen)(const char* str, struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout));
+void gtxt_glyph_create(int cap_bitmap, int cap_layout, uint32_t* (*char_gen)(const char* str, struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout));
+void gtxt_glyph_release();
 
 struct gtxt_glyph_layout* gtxt_glyph_get_layout(int unicode, struct gtxt_glyph_style*);
 

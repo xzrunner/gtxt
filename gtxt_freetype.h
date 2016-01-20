@@ -14,7 +14,8 @@ extern "C"
 struct gtxt_glyph_layout;
 struct gtxt_glyph_style;
 
-void gtxt_ft_init();
+void gtxt_ft_create();
+void gtxt_ft_release();
 
 int gtxt_ft_add_font(const char* name, const char* filepath);
 

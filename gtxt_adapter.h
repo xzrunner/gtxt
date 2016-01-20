@@ -10,7 +10,8 @@ struct dtex_cg;
 struct gtxt_glyph_style;
 struct gtxt_draw_style;
 
-void gtxt_adapter_init(struct dtex_cg* cg);
+void gtxt_adapter_create(struct dtex_cg* cg);
+void gtxt_adapter_release();
 
 void gtxt_draw_glyph(int unicode, float x, float y, float w, float h,
                      struct gtxt_glyph_style* gs, struct gtxt_draw_style* ds, 

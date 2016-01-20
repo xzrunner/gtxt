@@ -1,6 +1,7 @@
 #include "gtxt_adapter.h"
 #include "gtxt_freetype.h"
 #include "gtxt_richtext.h"
+#include "gtxt_layout.h"
 
 #include <dtex_facade.h>
 
@@ -8,16 +9,27 @@
 #include <lauxlib.h>
 
 static int
-linit(lua_State* L) {
+lcreate(lua_State* L) {
 	int cap_bitmap = luaL_optinteger(L, 1, 50);
 	int cap_layout = luaL_optinteger(L, 2, 500);
 	
 	struct dtex_cg* cg = dtexf_get_cg();
-	gtxt_adapter_init(cg);
+	gtxt_adapter_create(cg);
 
-	gtxt_ft_init();
+	gtxt_ft_create();
 
-	gtxt_glyph_init(cap_bitmap, cap_layout, NULL);
+	gtxt_glyph_create(cap_bitmap, cap_layout, NULL);
+
+	return 0;
+}
+
+static int
+lrelease(lua_State* L) {
+	gtxt_adapter_release();
+	gtxt_ft_release();
+	gtxt_glyph_release();
+	gtxt_layout_release();
+	gtxt_richtext_release();
 
 	return 0;
 }
@@ -41,7 +53,9 @@ ladd_color(lua_State* L) {
 int
 luaopen_gtxt_c(lua_State* L) {
 	luaL_Reg l[] = {
-		{ "init", linit },
+		{ "create", lcreate },
+		{ "release", lrelease },
+
 		{ "add_font", ladd_font },
 		{ "add_color", ladd_color },
 

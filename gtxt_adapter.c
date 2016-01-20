@@ -4,12 +4,18 @@
 #include <dtex_cg.h>
 
 #include <assert.h>
+#include <stddef.h>
 
-static struct dtex_cg* CG;
+static struct dtex_cg* CG = NULL;
 
 void 
-gtxt_adapter_init(struct dtex_cg* cg) {
+gtxt_adapter_create(struct dtex_cg* cg) {
 	CG = cg;
+}
+
+void 
+gtxt_adapter_release() {
+	CG = NULL;
 }
 
 static inline void

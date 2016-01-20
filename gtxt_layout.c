@@ -52,6 +52,13 @@ struct layout {
 
 static struct layout L;
 
+void 
+gtxt_layout_release() {
+	free(L.glyph_freelist);
+	free(L.row_freelist);
+	memset(&L, 0, sizeof(L));
+}
+
 static inline void
 _prepare_glyph_freelist(int cap) {
 	if (cap <= L.glyph_cap || cap <= 0) {

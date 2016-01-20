@@ -51,7 +51,7 @@ static union gtxt_color* BUF;
 static size_t BUF_SZ;
 
 void 
-gtxt_ft_init() {
+gtxt_ft_create() {
 	FT = (struct freetype*)malloc(sizeof(*FT));
 	memset(FT, 0, sizeof(*FT));
 
@@ -59,6 +59,20 @@ gtxt_ft_init() {
 	memset(IN_SPANS, 0, sizeof(*IN_SPANS));
 	OUT_SPANS = (struct spans*)malloc(sizeof(struct spans));
 	memset(OUT_SPANS, 0, sizeof(*OUT_SPANS));
+}
+
+void 
+gtxt_ft_release() {
+	for (int i = 0; i < FT->count; ++i) {
+		struct font* f = &FT->fonts[i];
+		FT_Done_Face(f->face);
+		FT_Done_FreeType(f->library);
+	}
+	free(FT); FT = NULL;
+	free(IN_SPANS); IN_SPANS = NULL;
+	free(OUT_SPANS); OUT_SPANS = NULL;
+	free(BUF); BUF = NULL;
+	BUF_SZ = 0;
 }
 
 int 

@@ -89,7 +89,15 @@ static struct color_map COLOR[MAX_COLOR] = {
 	{ "yellow",		.color.integer = 0xffff00ff }
 };
 
-static int COLOR_SIZE = 22;
+#define DEFAULT_COLOR_SIZE 22
+
+static int COLOR_SIZE = DEFAULT_COLOR_SIZE;
+
+void 
+gtxt_richtext_release() {
+	FONT_SIZE = 0;
+	COLOR_SIZE = DEFAULT_COLOR_SIZE;
+}
 
 void 
 gtxt_richtext_add_color(const char* key, unsigned int val) {
