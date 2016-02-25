@@ -279,7 +279,7 @@ _draw_with_edge(struct font* font, FT_UInt gindex, union gtxt_color font_color,
 }
 
 static bool
-_load_glyph_to_bitmap(int unicode, struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout,
+_load_glyph_to_bitmap(int unicode, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout,
 					  void (*default_cb)(FT_Bitmap* bitmap, union gtxt_color color),
 					  void (*edge_cb)(int img_x, int img_y, int img_w, int img_h, union gtxt_color font_color, union gtxt_color edge_color)) {
 	if (style->font < 0 || style->font >= FT->count) {
@@ -379,12 +379,12 @@ _copy_glyph_with_edge(int img_x, int img_y, int img_w, int img_h,
 }
 
 void 
-gtxt_ft_get_layout(int unicode, struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) {
+gtxt_ft_get_layout(int unicode, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) {
 	_load_glyph_to_bitmap(unicode, style, layout, NULL, NULL);
 }
 
 uint32_t* 
-gtxt_ft_gen_char(int unicode, struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) {
+gtxt_ft_gen_char(int unicode, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) {
 	if (FT->count == 0) {
 		return NULL;
 	}

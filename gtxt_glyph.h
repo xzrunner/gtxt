@@ -32,12 +32,12 @@ struct gtxt_glyph_style {
 	union gtxt_color edge_color;
 };
 
-void gtxt_glyph_create(int cap_bitmap, int cap_layout, uint32_t* (*char_gen)(const char* str, struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout));
+void gtxt_glyph_create(int cap_bitmap, int cap_layout, uint32_t* (*char_gen)(const char* str, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout));
 void gtxt_glyph_release();
 
-struct gtxt_glyph_layout* gtxt_glyph_get_layout(int unicode, struct gtxt_glyph_style*);
+struct gtxt_glyph_layout* gtxt_glyph_get_layout(int unicode, const struct gtxt_glyph_style*);
 
-uint32_t* gtxt_glyph_get_bitmap(int unicode, struct gtxt_glyph_style*, struct gtxt_glyph_layout* layout);
+uint32_t* gtxt_glyph_get_bitmap(int unicode, const struct gtxt_glyph_style*, struct gtxt_glyph_layout* layout);
 
 #endif // gametext_glyph_h
 

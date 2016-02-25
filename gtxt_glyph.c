@@ -45,7 +45,7 @@ struct glyph_cache {
 
 static struct glyph_cache* C;
 
-static uint32_t* (*CHAR_GEN)(const char* str, struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) = NULL;
+static uint32_t* (*CHAR_GEN)(const char* str, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) = NULL;
 
 static inline unsigned int 
 _hash_func(int hash_sz, void* key) {
@@ -91,7 +91,7 @@ _equal_func(void* key0, void* key1) {
 
 void 
 gtxt_glyph_create(int cap_bitmap, int cap_layout,
-				  uint32_t* (*char_gen)(const char* str, struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout)) {
+				  uint32_t* (*char_gen)(const char* str, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout)) {
 	CHAR_GEN = char_gen;
 
 	size_t bitmap_sz = sizeof(struct glyph_bitmap) * cap_bitmap;
@@ -183,7 +183,7 @@ _new_node() {
 }
 
 struct gtxt_glyph_layout* 
-gtxt_glyph_get_layout(int unicode, struct gtxt_glyph_style* style) {
+gtxt_glyph_get_layout(int unicode, const struct gtxt_glyph_style* style) {
 	struct glyph_key key;
 	key.unicode = unicode;
 	key.s = *style;
@@ -204,7 +204,7 @@ gtxt_glyph_get_layout(int unicode, struct gtxt_glyph_style* style) {
 }
 
 uint32_t* 
-gtxt_glyph_get_bitmap(int unicode, struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) {
+gtxt_glyph_get_bitmap(int unicode, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) {
 	struct glyph_key key;
 	key.unicode = unicode;
 	key.s = *style;

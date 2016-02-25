@@ -19,7 +19,7 @@ gtxt_adapter_release() {
 }
 
 static inline void
-_init_glyph(int unicode, struct gtxt_glyph_style* style, struct dtex_glyph* glyph) {
+_init_glyph(int unicode, const struct gtxt_glyph_style* style, struct dtex_glyph* glyph) {
 	glyph->unicode		= unicode;
 	glyph->s.font		= style->font;
 	glyph->s.font_size	= style->font_size;
@@ -31,7 +31,7 @@ _init_glyph(int unicode, struct gtxt_glyph_style* style, struct dtex_glyph* glyp
 
 void
 gtxt_draw_glyph(int unicode, float x, float y, float w, float h, 
-                struct gtxt_glyph_style* gs, struct gtxt_draw_style* ds, 
+                const struct gtxt_glyph_style* gs, struct gtxt_draw_style* ds, 
 				void (*render)(int id, float* texcoords, float x, float y, float w, float h, struct gtxt_draw_style* ds, void* ud), void* ud) {
 	if (unicode == ' ' || unicode == '\n') {
 		return;
@@ -58,7 +58,7 @@ gtxt_draw_glyph(int unicode, float x, float y, float w, float h,
 }
 
 void 
-gtxt_reload_glyph(int unicode, struct gtxt_glyph_style* style) {
+gtxt_reload_glyph(int unicode, const struct gtxt_glyph_style* style) {
 	if (unicode == ' ' || unicode == '\n') {
 		return;
 	}

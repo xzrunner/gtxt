@@ -66,10 +66,10 @@ void gtxt_ext_sym_get_size(void* ext_sym, int* width, int* height);
 void gtxt_ext_sym_render(void* ext_sym, float x, float y, void* ud);
 bool gtxt_ext_sym_query(void* ext_sym, float x, float y, float w, float h, int qx, int qy, void* ud);
 
-void gtxt_richtext_parser(const char* str, struct gtxt_label_style* style, 
+void gtxt_richtext_parser(const char* str, const struct gtxt_label_style* style, 
 						  int (*cb)(const char* str, struct gtxt_richtext_style* style, void* ud), void* ud);
 
-void gtxt_richtext_parser_dynamic(const char* str, struct gtxt_label_style* style, int time,
+void gtxt_richtext_parser_dynamic(const char* str, const struct gtxt_label_style* style, int time,
 								  int (*cb)(const char* str, struct gtxt_richtext_style* style, void* ud), void* ud);
 
 #endif // gametext_richtext_h

@@ -2,6 +2,7 @@
 #include "gtxt_layout.h"
 #include "gtxt_richtext.h"
 #include "gtxt_adapter.h"
+#include "gtxt_glyph.h"
 
 #include <dtex_array.h>
 
@@ -42,7 +43,7 @@ _unicode_len(const char chr) {
 //}
 
 struct draw_params {
-	struct gtxt_label_style* style;
+	const struct gtxt_label_style* style;
 
 	void (*render)(int id, float* texcoords, float x, float y, float w, float h, struct gtxt_draw_style* ds, void* ud);
 	void* ud;
@@ -116,7 +117,7 @@ _draw_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void
 }
 
 void 
-gtxt_label_draw(const char* str, struct gtxt_label_style* style,  
+gtxt_label_draw(const char* str, const struct gtxt_label_style* style,  
 				void (*render)(int id, float* texcoords, float x, float y, float w, float h, struct gtxt_draw_style* ds, void* ud), void* ud) {
 	if (!UNICODE_BUF) {
 		UNICODE_BUF = dtex_array_create(128, sizeof(int));
@@ -182,7 +183,7 @@ _get_layout_result_cb(int unicode, float x, float y, float w, float h, float row
 }
 
 void 
-gtxt_label_draw_richtext(const char* str, struct gtxt_label_style* style, int time,
+gtxt_label_draw_richtext(const char* str, const struct gtxt_label_style* style, int time,
 						 void (*render)(int id, float* texcoords, float x, float y, float w, float h, struct gtxt_draw_style* ds, void* ud), void* ud) {
 	if (!UNICODE_BUF) {
 		UNICODE_BUF = dtex_array_create(128, sizeof(int));
@@ -215,7 +216,7 @@ gtxt_label_draw_richtext(const char* str, struct gtxt_label_style* style, int ti
 }
 
 void 
-gtxt_label_reload(const char* str, struct gtxt_label_style* style) {
+gtxt_label_reload(const char* str, const struct gtxt_label_style* style) {
  	int str_len = strlen(str);
  	for (int i = 0; i < str_len; ) {
  		int len = _unicode_len(str[i]);
@@ -240,7 +241,7 @@ _reload_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, vo
 }
 
 void 
-gtxt_label_reload_richtext(const char* str, struct gtxt_label_style* style) {
+gtxt_label_reload_richtext(const char* str, const struct gtxt_label_style* style) {
 	gtxt_richtext_parser(str, style, _reload_richtext_glyph_cb, NULL);
 }
 
@@ -284,7 +285,7 @@ _query_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, voi
 }
 
 void* 
-gtxt_label_point_query(const char* str, struct gtxt_label_style* style, int x, int y, void* ud) {
+gtxt_label_point_query(const char* str, const struct gtxt_label_style* style, int x, int y, void* ud) {
 	if (!UNICODE_BUF) {
 		UNICODE_BUF = dtex_array_create(128, sizeof(int));
 	}
@@ -320,7 +321,7 @@ gtxt_label_point_query(const char* str, struct gtxt_label_style* style, int x, i
 }
 
 void 
-gtxt_get_label_size(const char* str, struct gtxt_label_style* style, float* width, float* height) {
+gtxt_get_label_size(const char* str, const struct gtxt_label_style* style, float* width, float* height) {
 	gtxt_layout_begin(style);
 	gtxt_richtext_parser(str, style, _layout_richtext_glyph_cb, NULL);
 	gtxt_get_layout_size(width, height);

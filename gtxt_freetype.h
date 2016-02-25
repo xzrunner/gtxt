@@ -19,8 +19,8 @@ void gtxt_ft_release();
 
 int gtxt_ft_add_font(const char* name, const char* filepath);
 
-void gtxt_ft_get_layout(int unicode, struct gtxt_glyph_style*, struct gtxt_glyph_layout*);
-uint32_t* gtxt_ft_gen_char(int unicode, struct gtxt_glyph_style*, struct gtxt_glyph_layout*);
+void gtxt_ft_get_layout(int unicode, const struct gtxt_glyph_style*, struct gtxt_glyph_layout*);
+uint32_t* gtxt_ft_gen_char(int unicode, const struct gtxt_glyph_style*, struct gtxt_glyph_layout*);
 
 #endif // gametext_freetype_h
 

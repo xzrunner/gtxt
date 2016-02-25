@@ -35,7 +35,7 @@ struct row {
 };
 
 struct layout {
-	struct gtxt_label_style* style;
+	const struct gtxt_label_style* style;
 
 	struct row* head;
 
@@ -176,7 +176,7 @@ _new_row() {
 }
 
 void 
-gtxt_layout_begin(struct gtxt_label_style* style) {
+gtxt_layout_begin(const struct gtxt_label_style* style) {
 	_prepare_freelist(INIT_ROW_CAP, INIT_GLYPH_CAP);
 
 	L.style = style;
@@ -270,7 +270,7 @@ _add_glyph(struct glyph* g) {
 
 bool 
 gtxt_layout_single(int unicode, struct gtxt_richtext_style* style) {
-	struct gtxt_glyph_style* gs;
+	const struct gtxt_glyph_style* gs;
 	if (style) {
 		gs = &style->gs;
 	} else {

@@ -14,7 +14,7 @@ struct dtex_array;
 
 void gtxt_layout_release();
 
-void gtxt_layout_begin(struct gtxt_label_style* style);
+void gtxt_layout_begin(const struct gtxt_label_style* style);
 
 bool gtxt_layout_single(int unicode, struct gtxt_richtext_style* style);
 void gtxt_layout_multi(struct dtex_array* unicodes);

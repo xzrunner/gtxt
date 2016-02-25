@@ -373,7 +373,7 @@ _parser_token(const char* token, struct richtext_state* rs) {
 }
 
 static inline void
-_init_state(struct richtext_state* rs, struct gtxt_label_style* style) {
+_init_state(struct richtext_state* rs, const struct gtxt_label_style* style) {
 	rs->font[0] = style->gs.font;
 	rs->font_layer = 1;
 	rs->size[0] = style->gs.font_size;
@@ -427,7 +427,7 @@ _read_token(const char* str, int ptr, int len, struct richtext_state* rs) {
 }
 
 void 
-gtxt_richtext_parser(const char* str, struct gtxt_label_style* style, 
+gtxt_richtext_parser(const char* str, const struct gtxt_label_style* style, 
 					 int (*cb)(const char* str, struct gtxt_richtext_style* style, void* ud), void* ud) {
 	struct richtext_state rs;
 	_init_state(&rs, style);
@@ -456,7 +456,7 @@ _cal_dynamic_val(struct dynamic_value* val, int time, int glyph) {
 }
 
 void 
-gtxt_richtext_parser_dynamic(const char* str, struct gtxt_label_style* style, int time,
+gtxt_richtext_parser_dynamic(const char* str, const struct gtxt_label_style* style, int time,
 							 int (*cb)(const char* str, struct gtxt_richtext_style* style, void* ud), void* ud) {
 	struct richtext_state rs;
 	_init_state(&rs, style);
