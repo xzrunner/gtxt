@@ -11,10 +11,10 @@
 #include <freetype/ftimage.h>
 #include <freetype/ftstroke.h>
 #else
-#include <freetype.h>
-#include <ftglyph.h>
-#include <ftimage.h>
-#include <ftstroke.h>
+#include FT_FREETYPE_H
+#include FT_GLYPH_H
+#include FT_IMAGE_H
+#include FT_STROKER_H
 #endif // USED_IN_EDITOR
 
 struct font {
