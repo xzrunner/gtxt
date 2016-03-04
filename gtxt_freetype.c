@@ -5,17 +5,10 @@
 #include <assert.h>
 
 #include <ft2build.h>
-#ifdef USED_IN_EDITOR
-#include <freetype/freetype.h>
-#include <freetype/ftglyph.h>
-#include <freetype/ftimage.h>
-#include <freetype/ftstroke.h>
-#else
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
 #include FT_IMAGE_H
 #include FT_STROKER_H
-#endif // USED_IN_EDITOR
 
 struct font {
 	FT_Library library;
