@@ -10,8 +10,8 @@
 
 static int
 lcreate(lua_State* L) {
-	int cap_bitmap = luaL_optinteger(L, 1, 50);
-	int cap_layout = luaL_optinteger(L, 2, 500);
+	int cap_bitmap = (int)(luaL_optinteger(L, 1, 50));
+	int cap_layout = (int)(luaL_optinteger(L, 2, 500));
 	
 	struct dtex_cg* cg = dtexf_get_cg();
 	gtxt_adapter_create(cg);
@@ -45,7 +45,7 @@ ladd_font(lua_State* L) {
 static int
 ladd_color(lua_State* L) {
 	const char* key = luaL_checkstring(L, 1);
-	unsigned int val = lua_tointeger(L, 2);
+	unsigned int val = (unsigned int)(lua_tointeger(L, 2));
 	gtxt_richtext_add_color(key, val);
 	return 0;
 }
