@@ -10,14 +10,14 @@ extern "C"
 
 struct gtxt_label_style;
 struct gtxt_richtext_style;
-struct dtex_array;
+struct ds_array;
 
 void gtxt_layout_release();
 
 void gtxt_layout_begin(const struct gtxt_label_style* style);
 
 bool gtxt_layout_single(int unicode, struct gtxt_richtext_style* style);
-void gtxt_layout_multi(struct dtex_array* unicodes);
+void gtxt_layout_multi(struct ds_array* unicodes);
 
 bool gtxt_layout_ext_sym(int width, int height);
 

@@ -3,7 +3,7 @@
 #include "gtxt_label.h"
 #include "gtxt_richtext.h"
 
-#include <dtex_array.h>
+#include <ds_array.h>
 
 #include <assert.h>
 #include <stdlib.h>
@@ -319,12 +319,12 @@ gtxt_layout_single(int unicode, struct gtxt_richtext_style* style) {
 }
 
 void 
-gtxt_layout_multi(struct dtex_array* unicodes) {
-	int glyph_sz = dtex_array_size(unicodes);
+gtxt_layout_multi(struct ds_array* unicodes) {
+	int glyph_sz = ds_array_size(unicodes);
 	_prepare_glyph_freelist(glyph_sz);
 
 	for (int i = 0; i < glyph_sz; ++i) {
-		int unicode = *(int*)dtex_array_fetch(unicodes, i);
+		int unicode = *(int*)ds_array_fetch(unicodes, i);
 		gtxt_layout_single(unicode, NULL);
 	}
 }

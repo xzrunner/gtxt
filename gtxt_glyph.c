@@ -1,7 +1,7 @@
 #include "gtxt_glyph.h"
 #include "gtxt_freetype.h"
 
-#include <dtex_hash.h>
+#include <ds_hash.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -34,7 +34,7 @@ struct glyph {
 };
 
 struct glyph_cache {
-	struct dtex_hash* hash;
+	struct ds_hash* hash;
 
 	struct glyph_bitmap* bitmap_freelist;
 	struct glyph_bitmap *bitmap_head, *bitmap_tail;
@@ -103,7 +103,7 @@ gtxt_glyph_create(int cap_bitmap, int cap_layout,
 	}
 	memset(C, 0, sz);
 
-	C->hash = dtex_hash_create(cap_layout, cap_layout * 2, 0.5f, _hash_func, _equal_func);
+	C->hash = ds_hash_create(cap_layout, cap_layout * 2, 0.5f, _hash_func, _equal_func);
 
 	// bitmap
 	C->bitmap_freelist = (struct glyph_bitmap*)(C + 1);
@@ -152,7 +152,7 @@ _new_node() {
 			C->glyph_tail = NULL;
 		}
 
-		dtex_hash_remove(C->hash, &g->key);
+		ds_hash_remove(C->hash, &g->key);
 		if (g->bitmap) {
 // 			g->bitmap->valid = false;
 // 			g->bitmap->next = C->bitmap_freelist;
@@ -188,7 +188,7 @@ gtxt_glyph_get_layout(int unicode, const struct gtxt_glyph_style* style) {
 	key.unicode = unicode;
 	key.s = *style;
 
-	struct glyph* g = (struct glyph*)dtex_hash_query(C->hash, &key);
+	struct glyph* g = (struct glyph*)ds_hash_query(C->hash, &key);
 	if (g) {
 		return &g->layout;
 	} else {
@@ -197,7 +197,7 @@ gtxt_glyph_get_layout(int unicode, const struct gtxt_glyph_style* style) {
 		gtxt_ft_get_layout(unicode, style, &g->layout);
 
 		g->key = key;
-		dtex_hash_insert(C->hash, &g->key, g, true);
+		ds_hash_insert(C->hash, &g->key, g, true);
 
 		return &g->layout;
 	}
@@ -209,7 +209,7 @@ gtxt_glyph_get_bitmap(int unicode, const struct gtxt_glyph_style* style, struct 
 	key.unicode = unicode;
 	key.s = *style;
 
-	struct glyph* g = (struct glyph*)dtex_hash_query(C->hash, &key);
+	struct glyph* g = (struct glyph*)ds_hash_query(C->hash, &key);
 	if (g) {
 		if (g->prev) {
 			g->prev->next = g->next;
@@ -221,7 +221,7 @@ gtxt_glyph_get_bitmap(int unicode, const struct gtxt_glyph_style* style, struct 
 	} else {
 		g = _new_node();
 		g->key = key;
-		dtex_hash_insert(C->hash, &g->key, g, true);
+		ds_hash_insert(C->hash, &g->key, g, true);
 	}
 
 	if (g->bitmap && g->bitmap->version != g->bmp_version) {
