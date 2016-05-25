@@ -50,6 +50,7 @@ gtxt_draw_glyph(int unicode, float x, float y, float w, float h,
 		}
 		texcoords = dtex_cg_load(CG, buf, layout.sizer.width, layout.sizer.height, &g);
 		if (!texcoords) {
+			dtex_cg_clear(CG);
 			return;
 		}
 	}
