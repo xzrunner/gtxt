@@ -20,7 +20,7 @@ struct glyph_bitmap {
 	uint32_t* buf;
 	size_t sz;
 
-	struct glyph_bitmap *next;
+	struct glyph_bitmap *prev, *next;
 };
 
 struct glyph {
@@ -111,7 +111,11 @@ gtxt_glyph_create(int cap_bitmap, int cap_layout,
 		C->bitmap_freelist[i].next = &C->bitmap_freelist[i + 1];
 	}
 	C->bitmap_freelist[cap_bitmap - 1].next = NULL;
-	
+	C->bitmap_freelist[0].prev = NULL;
+	for (int i = 1; i < cap_bitmap; ++i) {
+		C->bitmap_freelist[i].prev = &C->bitmap_freelist[i-1];
+	}
+
 	// layout
 	C->glyph_freelist = (struct glyph*)((intptr_t)C->bitmap_freelist + bitmap_sz);
 	for (int i = 0; i < cap_layout - 1; ++i) {
@@ -203,6 +207,48 @@ gtxt_glyph_get_layout(int unicode, const struct gtxt_glyph_style* style) {
 	}
 }
 
+static inline void
+_deconnect_bmp(struct glyph_bitmap* bmp) {
+	if (C->bitmap_head == bmp) {
+		C->bitmap_head = bmp->next;
+	}
+	if (C->bitmap_tail == bmp) {
+		C->bitmap_tail = bmp->prev;
+	}
+	if (bmp->prev) {
+		bmp->prev->next = bmp->next;
+	}
+	if (bmp->next) {
+		bmp->next->prev = bmp->prev;
+	}
+}
+
+static inline void
+_push_bmp_to_freelist(struct glyph_bitmap* bmp) {
+	++bmp->version;
+	_deconnect_bmp(bmp);
+	bmp->prev = NULL;
+	bmp->next = C->bitmap_freelist;
+	if (C->bitmap_freelist) {
+		C->bitmap_freelist->prev = bmp;
+	}
+	C->bitmap_freelist = bmp;
+}
+
+static inline void
+_move_bmp_to_tail(struct glyph_bitmap* bmp) {
+	_deconnect_bmp(bmp);
+	if (!C->bitmap_head) {
+		C->bitmap_head = bmp;
+	}
+	bmp->prev = C->bitmap_tail;
+	if (C->bitmap_tail) {
+		C->bitmap_tail->next = bmp;
+	}
+	bmp->next = NULL;
+	C->bitmap_tail = bmp;
+}
+
 uint32_t* 
 gtxt_glyph_get_bitmap(int unicode, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) {
 	struct glyph_key key;
@@ -225,19 +271,18 @@ gtxt_glyph_get_bitmap(int unicode, const struct gtxt_glyph_style* style, struct 
 	}
 
 	if (g->bitmap && g->bitmap->version != g->bmp_version) {
+		_push_bmp_to_freelist(g->bitmap);
 		g->bitmap = NULL;
 		g->bmp_version = 0;
 	}
 
 	if (!g->bitmap) {
+		// move first to freelist
 		if (!C->bitmap_freelist) {
 			assert(C->bitmap_head);
-			struct glyph_bitmap* bmp = C->bitmap_head;
-			++bmp->version;
-			C->bitmap_head = bmp->next;
-			bmp->next = C->bitmap_freelist;
-			C->bitmap_freelist = bmp;
+			_push_bmp_to_freelist(C->bitmap_head);
 		}
+
 		g->bitmap = C->bitmap_freelist;
 		g->bmp_version = g->bitmap->version;
 
@@ -271,14 +316,8 @@ gtxt_glyph_get_bitmap(int unicode, const struct gtxt_glyph_style* style, struct 
 
 		ret_buf = g->bitmap->buf;
 	}
-	if (!C->bitmap_tail) {
-		assert(!C->bitmap_head);
-		C->bitmap_head = C->bitmap_tail = g->bitmap;
-	} else {
-		C->bitmap_tail->next = g->bitmap;
-		C->bitmap_tail = g->bitmap;
-	}
-	g->bitmap->next = NULL;
+
+	_move_bmp_to_tail(g->bitmap);
 
 	return ret_buf;
 }
