@@ -285,11 +285,13 @@ _load_glyph_to_bitmap(int unicode, const struct gtxt_glyph_style* style, struct 
 
 	FT_Set_Pixel_Sizes(ft_face, style->font_size, style->font_size);
 	FT_Size_Metrics s = ft_face->size->metrics;
-	layout->metrics_height = s.height >> 6;	
+	layout->metrics_height = s.height >> 6;
 
 	FT_UInt gindex = FT_Get_Char_Index(ft_face, unicode);
 	if (gindex == 0) {
-		return false;
+		const int DEFAULT_UNICODE = 9633;
+		unicode = DEFAULT_UNICODE;
+		gindex = FT_Get_Char_Index(ft_face, unicode);
 	}
 
 	if (unicode == ' ' || unicode == '\n') {
