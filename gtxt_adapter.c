@@ -33,7 +33,7 @@ void
 gtxt_draw_glyph(int unicode, float x, float y, float w, float h, 
                 const struct gtxt_glyph_style* gs, struct gtxt_draw_style* ds, 
 				void (*render)(int id, float* texcoords, float x, float y, float w, float h, struct gtxt_draw_style* ds, void* ud), void* ud) {
-	if (unicode == ' ' || unicode == '\n') {
+	if (unicode == ' ' || unicode == 160 || unicode == '\n') {
 		return;
 	}
 
@@ -60,7 +60,7 @@ gtxt_draw_glyph(int unicode, float x, float y, float w, float h,
 
 void 
 gtxt_reload_glyph(int unicode, const struct gtxt_glyph_style* style) {
-	if (unicode == ' ' || unicode == '\n') {
+	if (unicode == ' ' || unicode == 160 || unicode == '\n') {
 		return;
 	}
 

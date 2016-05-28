@@ -294,7 +294,7 @@ _load_glyph_to_bitmap(int unicode, const struct gtxt_glyph_style* style, struct 
 		gindex = FT_Get_Char_Index(ft_face, unicode);
 	}
 
-	if (unicode == ' ' || unicode == '\n') {
+	if (unicode == ' ' || unicode == 160 || unicode == '\n') {
 		edge_cb = NULL;
 		default_cb = NULL;
 	}
