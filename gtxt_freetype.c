@@ -113,7 +113,11 @@ _draw_default(struct font* font, FT_UInt gindex, union gtxt_color color, struct 
 		FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_NORMAL, 0, 1);
 		FT_BitmapGlyph bitmap_glyph = (FT_BitmapGlyph)glyph;
 		FT_Bitmap* bitmap = &bitmap_glyph->bitmap;
-		assert(bitmap->rows == layout->sizer.height && bitmap->width == layout->sizer.width);
+
+//		assert(bitmap->rows == layout->sizer.height && bitmap->width == layout->sizer.width);
+		layout->sizer.height = bitmap->rows;
+		layout->sizer.width = bitmap->width;
+
 		cb(bitmap, color);
 	}
 
