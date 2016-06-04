@@ -357,6 +357,10 @@ _copy_glyph_with_edge(int img_x, int img_y, int img_w, int img_h,
 			union gtxt_color* p = &BUF[index];
 			*p = edge_color;
 			p->a = out_span->coverage;
+			p->r = p->r * p->a >> 8;
+			p->g = p->g * p->a >> 8;
+			p->b = p->b * p->a >> 8;
+
 		}
 	}
 
