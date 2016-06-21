@@ -15,6 +15,7 @@ LOCAL_C_INCLUDES  := \
 	${EJOY2D_SRC_PATH} \
 	${PS_SRC_PATH} \
 	${LUA_SRC_PATH} \
+	${FS_SRC_PATH} \
 
 LOCAL_SRC_FILES := \
 	$(subst $(LOCAL_PATH)/,,$(shell find $(LOCAL_PATH) -name "*.c" -print)) \

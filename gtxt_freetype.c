@@ -2,7 +2,7 @@
 #include "gtxt_glyph.h"
 #include "gtxt_richtext.h"
 
-#include <assert.h>
+#include <fs_file.h>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -10,9 +10,12 @@
 #include FT_IMAGE_H
 #include FT_STROKER_H
 
+#include <assert.h>
+
 struct font {
 	FT_Library library;
 	FT_Face face;
+	unsigned char* buf;
 };
 
 #define MAX_FONTS 8
@@ -60,6 +63,7 @@ gtxt_ft_release() {
 		struct font* f = &FT->fonts[i];
 		FT_Done_Face(f->face);
 		FT_Done_FreeType(f->library);
+		free(f->buf);
 	}
 	free(FT); FT = NULL;
 	free(IN_SPANS); IN_SPANS = NULL;
@@ -79,10 +83,25 @@ gtxt_ft_add_font(const char* name, const char* filepath) {
 	if (FT_Init_FreeType(&f->library)) {
 		return -1;
 	}
-	if (FT_New_Face(f->library, filepath, 0, &f->face)) {
+
+	struct fs_file* file = fs_open(filepath, "rb");
+	if (!file) {
 		return -1;
 	}
+	size_t sz = fs_size(file);
+	f->buf = (unsigned char*)malloc(sz);
 
+	if (fs_read(file, f->buf, sz) != 1) {
+		free(f->buf);
+		return -1;
+	}
+	fs_close(file);
+
+	if (FT_New_Memory_Face(f->library, (const FT_Byte*)f->buf, sz, 0, &f->face)) {
+		free(f->buf);
+		return -1;
+	}
+	
 	gtxt_richtext_add_font(name);
 
 	return FT->count - 1;
