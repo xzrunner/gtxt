@@ -523,6 +523,9 @@ gtxt_richtext_parser(const char* str, const struct gtxt_label_style* style,
 			if (token_disable) {
 				token_disable = false;
 			}
+			if (str[i] == '\\') {
+				token_disable = true;
+			}
 			int n = cb(&str[i], &rs.s, ud);
 			if (n == 0) {
 				break;
@@ -564,6 +567,9 @@ gtxt_richtext_parser_dynamic(const char* str, const struct gtxt_label_style* sty
 		} else {
 			if (token_disable) {
 				token_disable = false;
+			}
+			if (str[i] == '\\') {
+				token_disable = true;
 			}
 			if (rs.dds.enable) {
 				rs.s.ds.alpha = _cal_dynamic_val(&rs.dds.alpha, time, glyph);
