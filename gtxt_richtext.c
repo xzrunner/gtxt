@@ -207,18 +207,18 @@ _parser_edge(const char* token, struct edge_style* es) {
 		_parser_color(&token[strlen("color=")], &es->color, &end);
 	}
 	if (*end) {
-		_parser_edge(end + 1, es);
+		_parser_edge(gtxt_richtext_skip_delimiter(end), es);
 	}
 }
 
 static inline void
 _parser_dynamic_value(const char* token, struct dynamic_value* val) {
 	const char* end = token;
-	val->start = strtod(end + 1 + strlen("start="), &end);
-	val->max = strtod(end + 1 + strlen("max="), &end);
-	val->min = strtod(end + 1 + strlen("min="), &end);
-	val->glyph_dt = strtod(end + 1 + strlen("glyph_dt="), &end);
-	val->time_dt = strtod(end + 1 + strlen("time_dt="), &end);
+	val->start = strtod(gtxt_richtext_skip_delimiter(end) + strlen("start="), &end);
+	val->max = strtod(gtxt_richtext_skip_delimiter(end)+ strlen("max="), &end);
+	val->min = strtod(gtxt_richtext_skip_delimiter(end) + strlen("min="), &end);
+	val->glyph_dt = strtod(gtxt_richtext_skip_delimiter(end) + strlen("glyph_dt="), &end);
+	val->time_dt = strtod(gtxt_richtext_skip_delimiter(end) + strlen("time_dt="), &end);
 }
 
 static inline void
@@ -307,7 +307,7 @@ static inline bool
 _parser_token(const char* token, struct richtext_state* rs) {
 	// font
 	if (_str_head_equal(token, "font")) {
-		int font = _parser_font(&token[strlen("font")+1]);
+		int font = _parser_font(gtxt_richtext_skip_delimiter(&token[strlen("font")]));
 		if (font >= 0) {
 			STATE_PUSH(rs->font, rs->font_layer, font, rs->s.gs.font);
 			return true;
@@ -320,7 +320,7 @@ _parser_token(const char* token, struct richtext_state* rs) {
 	}	
 	// size
 	else if (_str_head_equal(token, "size")) {
-		int size = strtol(&token[strlen("size")+1], (char**)NULL, 10);
+		int size = strtol(gtxt_richtext_skip_delimiter(&token[strlen("size")]), (char**)NULL, 10);
 		if (size >= MIN_FONT_SIZE && size <= MAX_FONT_SIZE) {
 			STATE_PUSH(rs->size, rs->size_layer, size, rs->s.gs.font_size);
 			return true;
@@ -335,7 +335,7 @@ _parser_token(const char* token, struct richtext_state* rs) {
 	else if (_str_head_equal(token, "color")) {
 		union gtxt_color col;
 		col.integer = 0xffffffff;
-		bool succ = _parser_color(&token[strlen("color")+1], &col, NULL);
+		bool succ = _parser_color(gtxt_richtext_skip_delimiter(&token[strlen("color")]), &col, NULL);
 		if (succ) {
 			STATE_PUSH(rs->color, rs->color_layer, col, rs->s.gs.font_color);
 			return true;
@@ -352,7 +352,7 @@ _parser_token(const char* token, struct richtext_state* rs) {
 		es.size = 1;
 		es.color.integer = 0x000000ff;
 		if (strlen(token) > strlen("edge")) {
-			_parser_edge(&token[strlen("edge")+1], &es);
+			_parser_edge(gtxt_richtext_skip_delimiter(&token[strlen("edge")]), &es);
 		}
 		if (rs->edge_layer < MAX_LAYER_COUNT) {
 			rs->edge[rs->edge_layer++] = es;
@@ -384,7 +384,7 @@ _parser_token(const char* token, struct richtext_state* rs) {
 	// file
 	else if (_str_head_equal(token, "file")) {
 		assert(!rs->s.ext_sym_ud);
-		rs->s.ext_sym_ud = EXT_SYM_CREATE(&token[strlen("file")+1]);
+		rs->s.ext_sym_ud = EXT_SYM_CREATE(gtxt_richtext_skip_delimiter(&token[strlen("file")]));
 		return true;
 	} else if (_str_head_equal(token, "/file")) {
 		EXT_SYM_RELEASE(rs->s.ext_sym_ud);
@@ -412,7 +412,7 @@ _parser_token(const char* token, struct richtext_state* rs) {
 	// disable
 	else if (_str_head_equal(token, "plain")) {
 		rs->disable = true;
-		rs->disable_num = strtol(&token[strlen("size")+1], (char**)NULL, 10);
+		rs->disable_num = strtol(gtxt_richtext_skip_delimiter(&token[strlen("plain")]), (char**)NULL, 10);
 		return true;
 	}
 	return false;
@@ -590,4 +590,28 @@ gtxt_richtext_parser_dynamic(const char* str, const struct gtxt_label_style* sty
 			i += n;
 		}
 	}
+}
+
+int 
+gtxt_richtext_get_delimiter(const char* str) {
+	if (str[0] == ' ') {
+		return 1;
+	} else if (strncmp(str, "\xe3\x80\x80", 3) == 0) {
+		return 3;
+	} else if (strncmp(str, "\xc2\xa0", 2) == 0) {
+		return 2;
+	} else {
+		return 0;
+	}
+}
+
+const char* 
+gtxt_richtext_skip_delimiter(const char* str) {
+	const char* ptr = str;
+	int len;
+	do {
+		len = gtxt_richtext_get_delimiter(ptr);
+		ptr += len;
+	} while (len != 0);
+	return ptr;
 }
