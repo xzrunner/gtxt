@@ -115,6 +115,21 @@ gtxt_richtext_add_color(const char* key, unsigned int val) {
 	cm->color.integer = val;
 }
 
+static const char* 
+_skip_delimiter_and_equal(const char* str) {
+	const char* ptr = str;
+	int len;
+	do {
+		if (*ptr == '=') {
+			len = 1;
+		} else {
+			len = gtxt_richtext_get_delimiter(ptr);
+		}
+		ptr += len;
+	} while (len != 0);
+	return ptr;
+}
+
 static inline bool
 _str_head_equal(const char* str, const char* substr) {
 	return strncmp(str, substr, strlen(substr)) == 0;
@@ -307,7 +322,7 @@ static inline bool
 _parser_token(const char* token, struct richtext_state* rs) {
 	// font
 	if (_str_head_equal(token, "font")) {
-		int font = _parser_font(gtxt_richtext_skip_delimiter(&token[strlen("font")]));
+		int font = _parser_font(_skip_delimiter_and_equal(&token[strlen("font")]));
 		if (font >= 0) {
 			STATE_PUSH(rs->font, rs->font_layer, font, rs->s.gs.font);
 			return true;
@@ -320,7 +335,7 @@ _parser_token(const char* token, struct richtext_state* rs) {
 	}	
 	// size
 	else if (_str_head_equal(token, "size")) {
-		int size = strtol(gtxt_richtext_skip_delimiter(&token[strlen("size")]), (char**)NULL, 10);
+		int size = strtol(_skip_delimiter_and_equal(&token[strlen("size")]), (char**)NULL, 10);
 		if (size >= MIN_FONT_SIZE && size <= MAX_FONT_SIZE) {
 			STATE_PUSH(rs->size, rs->size_layer, size, rs->s.gs.font_size);
 			return true;
@@ -335,7 +350,7 @@ _parser_token(const char* token, struct richtext_state* rs) {
 	else if (_str_head_equal(token, "color")) {
 		union gtxt_color col;
 		col.integer = 0xffffffff;
-		bool succ = _parser_color(gtxt_richtext_skip_delimiter(&token[strlen("color")]), &col, NULL);
+		bool succ = _parser_color(_skip_delimiter_and_equal(&token[strlen("color")]), &col, NULL);
 		if (succ) {
 			STATE_PUSH(rs->color, rs->color_layer, col, rs->s.gs.font_color);
 			return true;
@@ -352,7 +367,7 @@ _parser_token(const char* token, struct richtext_state* rs) {
 		es.size = 1;
 		es.color.integer = 0x000000ff;
 		if (strlen(token) > strlen("edge")) {
-			_parser_edge(gtxt_richtext_skip_delimiter(&token[strlen("edge")]), &es);
+			_parser_edge(_skip_delimiter_and_equal(&token[strlen("edge")]), &es);
 		}
 		if (rs->edge_layer < MAX_LAYER_COUNT) {
 			rs->edge[rs->edge_layer++] = es;
@@ -384,7 +399,7 @@ _parser_token(const char* token, struct richtext_state* rs) {
 	// file
 	else if (_str_head_equal(token, "file")) {
 		assert(!rs->s.ext_sym_ud);
-		rs->s.ext_sym_ud = EXT_SYM_CREATE(gtxt_richtext_skip_delimiter(&token[strlen("file")]));
+		rs->s.ext_sym_ud = EXT_SYM_CREATE(_skip_delimiter_and_equal(&token[strlen("file")]));
 		return true;
 	} else if (_str_head_equal(token, "/file")) {
 		EXT_SYM_RELEASE(rs->s.ext_sym_ud);
