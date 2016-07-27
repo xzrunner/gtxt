@@ -98,7 +98,6 @@ _draw_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void
 		gtxt_ext_sym_render(style->ext_sym_ud, pos->x, pos->y, params->ud);
 	} else {
 		struct layout_pos* pos = &params->result[params->idx++];
-		assert(pos->unicode == unicode);
 		style->ds.row_y = pos->row_y;
 		if (style->ds.row_h == 0) {
 			style->ds.row_h = pos->h;
@@ -110,7 +109,7 @@ _draw_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void
 		} else if (style->ds.pos_type == GRPT_MIDDLE && str[len] == '<') {
 			style->ds.pos_type = GRPT_END;
 		}
-		gtxt_draw_glyph(unicode, pos->x, pos->y, pos->w, pos->h, &style->gs, &style->ds, params->render, params->ud);
+		gtxt_draw_glyph(pos->unicode, pos->x, pos->y, pos->w, pos->h, &style->gs, &style->ds, params->render, params->ud);
 	}
 
 	return len;
@@ -149,18 +148,32 @@ _layout_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, vo
 	int len = _unicode_len(str[0]);
 	int unicode = _get_unicode(str, len);
 
-	bool succ = false;
+	enum GLO_STATUS status = GLOS_NORMAL;
 	if (style->ext_sym_ud) {
 		int w, h;
 		gtxt_ext_sym_get_size(style->ext_sym_ud, &w, &h);
 		gtxt_layout_ext_sym(w, h);
-		succ = true;
+		// todo
+//		succ = true;
 	} else {
-		succ = gtxt_layout_single(unicode, style);
+		status = gtxt_layout_single(unicode, style);
 	}
-	if (ud && succ) {
-		int* count = (int*)ud;
-		++*count;
+
+	switch (status) {
+	case GLOS_NORMAL:
+		if (ud) {
+			int* count = (int*)ud;
+			++*count;
+		}
+		break;
+	case GLOS_FULL:
+		len = 0;
+		int n = gtxt_layout_add_omit_sym(&style->gs);
+		if (ud) {
+			int* count = (int*)ud;
+			*count += n;
+		}
+		break;
 	}
 
 	return len;

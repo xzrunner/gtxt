@@ -35,6 +35,8 @@ struct gtxt_label_style {
 	float space_h;
 	float space_v;
 
+	bool overflow;
+
 	struct gtxt_glyph_style gs;
 };
 

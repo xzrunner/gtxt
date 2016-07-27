@@ -13,6 +13,9 @@
 #define INIT_ROW_CAP 4
 #define INIT_GLYPH_CAP 16
 
+#define OMIT_UNICODE 46
+#define OMIT_COUNT 3
+
 struct glyph {
 	int unicode;
 
@@ -45,7 +48,7 @@ struct layout {
 	struct row* row_freelist;
 	size_t row_cap;
 
-	float tot_height;
+	float prev_tot_h;
 
 	struct row* curr_row;
 };
@@ -181,7 +184,7 @@ gtxt_layout_begin(const struct gtxt_label_style* style) {
 
 	L.style = style;
 
-	L.tot_height = 0;
+	L.prev_tot_h = 0;
 
 	L.curr_row = _new_row();
 	L.head = L.curr_row;
@@ -240,15 +243,20 @@ _new_glyph() {
 }
 
 static inline bool
-_line_feed() {
+_new_line() {
 	float h = L.curr_row->height * L.style->space_v;
-	L.tot_height += h;
-// 	if (L.tot_height > L.style->height) {
-// 		return false;
-// 	}
+	L.prev_tot_h += h;
+	// over label height
+	if (!L.style->overflow) {
+		float tot_h = L.prev_tot_h + L.curr_row->height;
+		if (tot_h > L.style->height) {
+			return false;
+		}
+	}
 
 	struct row* prev = L.curr_row;
 	L.curr_row = _new_row();
+	// no free row
 	if (!L.curr_row) {
 		return false;
 	}
@@ -268,7 +276,7 @@ _add_glyph(struct glyph* g) {
 	}
 }
 
-bool 
+enum GLO_STATUS 
 gtxt_layout_single(int unicode, struct gtxt_richtext_style* style) {
 	const struct gtxt_glyph_style* gs;
 	if (style) {
@@ -276,18 +284,17 @@ gtxt_layout_single(int unicode, struct gtxt_richtext_style* style) {
 	} else {
 		gs = &L.style->gs;
 	}
-
 	struct gtxt_glyph_layout* g_layout = gtxt_glyph_get_layout(unicode, gs);
 	float w = g_layout->advance * L.style->space_h;
 	if (unicode == '\n' || L.curr_row->width + w > L.style->width) {
 		if (L.curr_row->height == 0) {
 			L.curr_row->height = g_layout->metrics_height;
 		}
-		if (!_line_feed()) {
-			return false;
+		if (!_new_line()) {
+			return GLOS_FULL;
 		}
 		if (unicode == '\n') {
-			return false;
+			return GLOS_NEWLINE;
 		}
 	} 
 	
@@ -315,7 +322,7 @@ gtxt_layout_single(int unicode, struct gtxt_richtext_style* style) {
 
 	_add_glyph(g);
 
-	return true;
+	return GLOS_NORMAL;
 }
 
 void 
@@ -325,14 +332,67 @@ gtxt_layout_multi(struct ds_array* unicodes) {
 
 	for (int i = 0; i < glyph_sz; ++i) {
 		int unicode = *(int*)ds_array_fetch(unicodes, i);
-		gtxt_layout_single(unicode, NULL);
+		enum GLO_STATUS status = gtxt_layout_single(unicode, NULL);
+		if (status == GLOS_FULL) {
+			gtxt_layout_add_omit_sym(&L.style->gs);
+			break;
+		}
 	}
+}
+
+static inline float
+_get_omit_sym_width(const struct gtxt_glyph_style* gs) {
+	struct gtxt_glyph_layout* layout = gtxt_glyph_get_layout(OMIT_UNICODE, gs);
+	float w = layout->advance * L.style->space_h;
+	return w;
+}
+
+int
+gtxt_layout_add_omit_sym(const struct gtxt_glyph_style* gs) {
+	float omit_w = _get_omit_sym_width(gs) * OMIT_COUNT;
+	if (omit_w > L.style->width) {
+		return 0;
+	}
+	int count = 0;
+	float max_w = L.style->width - omit_w;
+	struct row* row = L.curr_row;
+	float w = 0;
+	struct glyph* curr = row->head;
+	struct glyph* prev = NULL;
+	while (curr != row->tail) {
+		w += curr->out_width;
+		if (w > max_w) {
+			row->width = w - curr->out_width;
+			if (prev) {
+				struct glyph* del_curr = curr;
+				while (del_curr) {
+					--count;
+					struct glyph* del_next = del_curr->next;
+					del_curr->next = L.glyph_freelist;
+					L.glyph_freelist = del_curr;
+					del_curr = del_next;
+				}
+				prev->next = NULL;
+				row->tail = prev;
+			}
+			break;
+		}
+		prev = curr;
+		curr = curr->next;
+	}
+
+	for (int i = 0; i < OMIT_COUNT; ++i) {
+		++count;
+		gtxt_layout_single(OMIT_UNICODE, NULL);
+	}
+
+	return count;
 }
 
 bool 
 gtxt_layout_ext_sym(int width, int height) {
 	if (L.curr_row->width + width > L.style->width) {
-		if (!_line_feed()) {
+		if (!_new_line()) {
 			return false;
 		}
 	}
@@ -379,7 +439,7 @@ static float
 _get_tot_height() {
 	float h = 0;
 	if (L.head->next) {
-		h = L.tot_height + L.curr_row->height;
+		h = L.prev_tot_h + L.curr_row->height;
 	} else {
 		assert(L.curr_row == L.head);
 		h = L.head->ymax - L.head->ymin;
@@ -390,17 +450,17 @@ _get_tot_height() {
 static float
 _get_start_y() {
 	float y;
-	float tot_height = _get_tot_height();
+	float tot_h = _get_tot_height();
 	if (L.head->next) {
 		switch (L.style->align_v) {
 		case VA_TOP: case VA_AUTO:
 			y = L.style->height * 0.5f - L.head->ymax;
 			break;
 		case VA_BOTTOM:
-			y = -L.style->height * 0.5f + tot_height - L.head->ymax;
+			y = -L.style->height * 0.5f + tot_h - L.head->ymax;
 			break;
 		case VA_CENTER:
-			y = tot_height * 0.5f - L.head->ymax;
+			y = tot_h * 0.5f - L.head->ymax;
 			break;
 		default:
 			assert(0);
@@ -415,7 +475,7 @@ _get_start_y() {
 			y = -L.style->height * 0.5f - r->ymin;
 			break;
 		case VA_CENTER:
-			y = -tot_height * 0.5f - r->ymin;
+			y = -tot_h * 0.5f - r->ymin;
 			break;
 		default:
 			assert(0);
