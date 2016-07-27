@@ -10,6 +10,7 @@ extern "C"
 
 struct gtxt_label_style;
 struct gtxt_richtext_style;
+struct gtxt_glyph_style;
 struct ds_array;
 
 enum GLO_STATUS
