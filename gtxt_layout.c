@@ -359,7 +359,7 @@ gtxt_layout_add_omit_sym(const struct gtxt_glyph_style* gs) {
 	float w = 0;
 	struct glyph* curr = row->head;
 	struct glyph* prev = NULL;
-	while (curr != row->tail) {
+	while (prev != row->tail) {
 		w += curr->out_width;
 		if (w > max_w) {
 			row->width = w - curr->out_width;
@@ -385,6 +385,7 @@ gtxt_layout_add_omit_sym(const struct gtxt_glyph_style* gs) {
 		++count;
 		gtxt_layout_single(OMIT_UNICODE, NULL);
 	}
+	row->width += omit_w;
 
 	return count;
 }
