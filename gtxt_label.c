@@ -80,6 +80,22 @@ struct draw_richtext_params {
 	void* ud;
 };
 
+static inline void
+_draw_unicode(const char* str, int unicode_len, struct gtxt_richtext_style* style, const struct layout_pos* pos, struct draw_richtext_params* params) {
+	style->ds.row_y = pos->row_y;
+	if (style->ds.row_h == 0) {
+		style->ds.row_h = pos->h;
+	} 
+	if (style->ds.pos_type == GRPT_NULL) {
+		style->ds.pos_type = GRPT_BEGIN;
+	} else if (style->ds.pos_type == GRPT_BEGIN) {
+		style->ds.pos_type = GRPT_MIDDLE;
+	} else if (style->ds.pos_type == GRPT_MIDDLE && str[unicode_len] == '<') {
+		style->ds.pos_type = GRPT_END;
+	}
+	gtxt_draw_glyph(pos->unicode, pos->x, pos->y, pos->w, pos->h, &style->gs, &style->ds, params->render, params->ud);
+}
+
 static inline int
 _draw_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void* ud) {
 	int len = _unicode_len(str[0]);
@@ -94,22 +110,14 @@ _draw_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void
 		return len;
 	} else if (style->ext_sym_ud) {
 		struct layout_pos* pos = &params->result[params->idx++];
-		assert(pos->unicode == -1);
-		gtxt_ext_sym_render(style->ext_sym_ud, pos->x, pos->y, params->ud);
+		if (pos->unicode == -1) {
+			gtxt_ext_sym_render(style->ext_sym_ud, pos->x, pos->y, params->ud);
+		} else {
+			_draw_unicode(str, len, style, pos, params);
+		}
 	} else {
 		struct layout_pos* pos = &params->result[params->idx++];
-		style->ds.row_y = pos->row_y;
-		if (style->ds.row_h == 0) {
-			style->ds.row_h = pos->h;
-		} 
-		if (style->ds.pos_type == GRPT_NULL) {
-			style->ds.pos_type = GRPT_BEGIN;
-		} else if (style->ds.pos_type == GRPT_BEGIN) {
-			style->ds.pos_type = GRPT_MIDDLE;
-		} else if (style->ds.pos_type == GRPT_MIDDLE && str[len] == '<') {
-			style->ds.pos_type = GRPT_END;
-		}
-		gtxt_draw_glyph(pos->unicode, pos->x, pos->y, pos->w, pos->h, &style->gs, &style->ds, params->render, params->ud);
+		_draw_unicode(str, len, style, pos, params);
 	}
 
 	return len;
@@ -152,9 +160,7 @@ _layout_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, vo
 	if (style->ext_sym_ud) {
 		int w, h;
 		gtxt_ext_sym_get_size(style->ext_sym_ud, &w, &h);
-		gtxt_layout_ext_sym(w, h);
-		// todo
-//		succ = true;
+		status = gtxt_layout_ext_sym(w, h);
 	} else {
 		status = gtxt_layout_single(unicode, style);
 	}

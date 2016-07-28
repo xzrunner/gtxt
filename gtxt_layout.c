@@ -390,11 +390,11 @@ gtxt_layout_add_omit_sym(const struct gtxt_glyph_style* gs) {
 	return count;
 }
 
-bool 
+enum GLO_STATUS 
 gtxt_layout_ext_sym(int width, int height) {
 	if (L.curr_row->width + width > L.style->width) {
 		if (!_new_line()) {
-			return false;
+			return GLOS_FULL;
 		}
 	}
 
@@ -416,7 +416,7 @@ gtxt_layout_ext_sym(int width, int height) {
 	g->out_width = width;
 	_add_glyph(g);
 
-	return true;
+	return GLOS_NORMAL;
 }
 
 static float
