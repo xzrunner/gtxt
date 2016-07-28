@@ -59,7 +59,7 @@ _get_unicode(const char* str, int n) {
 }
 
 static inline void
-_draw_glyph_cb(int unicode, float x, float y, float w, float h, void* ud) {
+_draw_glyph_cb(int unicode, float x, float y, float w, float h, float row_y, void* ud) {
 	struct draw_params* params = (struct draw_params*)ud;
 	gtxt_draw_glyph(unicode, x, y, w, h, &params->style->gs, NULL, params->render, params->ud);
 }
@@ -223,7 +223,7 @@ gtxt_label_draw_richtext(const char* str, const struct gtxt_label_style* style, 
 	params.idx = 0;
 	params.render = render;
 	params.ud = ud;
-	gtxt_layout_traverse2(_get_layout_result_cb, &params);
+	gtxt_layout_traverse(_get_layout_result_cb, &params);
 
 	gtxt_layout_end();
 
@@ -326,7 +326,7 @@ gtxt_label_point_query(const char* str, const struct gtxt_label_style* style, in
 	params.qy = y;
 	params.ud = ud;
 	params.ret_ext_sym = NULL;
-	gtxt_layout_traverse2(_get_layout_result_cb, &params);
+	gtxt_layout_traverse(_get_layout_result_cb, &params);
 
 	gtxt_layout_end();
 

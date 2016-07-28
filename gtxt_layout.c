@@ -486,24 +486,7 @@ _get_start_y() {
 }
 
 void 
-gtxt_layout_traverse(void (*cb)(int unicode, float x, float y, float w, float h, void* ud), void* ud) {
-	float y = _get_start_y();
-	struct row* r = L.head;
-	while (r) {
-		float x = _get_start_x(r->width);
-		struct glyph* g = r->head;
-		while (g) {
-			cb(g->unicode, x + g->x + g->w * 0.5f, y + g->y - g->h * 0.5f, g->w, g->h, ud);
-			x += g->out_width;
-			g = g->next;
-		}
-		y -= r->height * L.style->space_v;
-		r = r->next;
-	}
-}
-
-void 
-gtxt_layout_traverse2(void (*cb)(int unicode, float x, float y, float w, float h, float row_y, void* ud), void* ud) {
+gtxt_layout_traverse(void (*cb)(int unicode, float x, float y, float w, float h, float row_y, void* ud), void* ud) {
 	float y = _get_start_y();
 	struct row* r = L.head;
 	while (r) {
@@ -514,8 +497,7 @@ gtxt_layout_traverse2(void (*cb)(int unicode, float x, float y, float w, float h
 			x += g->out_width;
 			g = g->next;
 		}
-		float row_height = r->height * L.style->space_v;
-		y -= row_height;
+		y -= r->height * L.style->space_v;
 		r = r->next;
 	}
 }
