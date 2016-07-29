@@ -33,6 +33,7 @@ struct row {
 	float ymax, ymin;
 
 	struct glyph *head, *tail;
+	int glyph_count;
 
 	struct row* next;
 };
@@ -41,6 +42,7 @@ struct layout {
 	const struct gtxt_label_style* style;
 
 	struct row* head;
+	int row_count;
 
 	struct glyph* glyph_freelist;
 	size_t glyph_cap;
@@ -188,6 +190,7 @@ gtxt_layout_begin(const struct gtxt_label_style* style) {
 
 	L.curr_row = _new_row();
 	L.head = L.curr_row;
+	L.row_count = 1;
 }
 
 void 
@@ -216,6 +219,7 @@ gtxt_layout_end() {
 		r->ymax = r->ymin = 0;
 		r->head = NULL;
 		r->tail = NULL;
+		r->glyph_count = 0;
 
 		r = r->next;
 	}
@@ -260,6 +264,7 @@ _new_line() {
 	if (!L.curr_row) {
 		return false;
 	}
+	++L.row_count;
 	prev->next = L.curr_row;
 	L.curr_row->next = NULL;
 	return true;
@@ -274,6 +279,7 @@ _add_glyph(struct glyph* g) {
 		L.curr_row->tail->next = g;
 		L.curr_row->tail = g;
 	}
+	++L.curr_row->glyph_count;
 }
 
 enum GLO_STATUS 
@@ -387,6 +393,8 @@ gtxt_layout_add_omit_sym(const struct gtxt_glyph_style* gs) {
 	}
 	row->width += omit_w;
 
+	row->glyph_count += count;
+
 	return count;
 }
 
@@ -423,7 +431,7 @@ static float
 _get_start_x(float line_width) {
 	float x = 0;
 	switch (L.style->align_h) {
-	case HA_LEFT: case HA_AUTO:
+	case HA_LEFT: case HA_AUTO: case HA_TILE:
 		x = -L.style->width * 0.5f;
 		break;
 	case HA_RIGHT:
@@ -463,13 +471,16 @@ _get_start_y() {
 		case VA_CENTER:
 			y = tot_h * 0.5f - L.head->ymax;
 			break;
+		case VA_TILE:
+			y = L.style->height * 0.5f;
+			break;
 		default:
 			assert(0);
 		}		
 	} else {
 		struct row* r = L.head;
 		switch (L.style->align_v) {
-		case VA_TOP: case VA_AUTO:
+		case VA_TOP: case VA_AUTO: case VA_TILE:
 			y = L.style->height * 0.5f - r->ymax;
 			break;
 		case VA_BOTTOM:
@@ -485,20 +496,63 @@ _get_start_y() {
 	return y;
 }
 
-void 
-gtxt_layout_traverse(void (*cb)(int unicode, float x, float y, float w, float h, float row_y, void* ud), void* ud) {
-	float y = _get_start_y();
-	struct row* r = L.head;
-	while (r) {
+static void
+_layout_traverse_hori(struct row* r, float y, void (*cb)(int unicode, float x, float y, float w, float h, float row_y, void* ud), void* ud) {
+	if (r->glyph_count == 0) {
+		assert(!r->head && !r->tail);
+		return;
+	}
+	if (L.style->align_h == HA_TILE) {
+		float grid = (float)L.style->width / r->glyph_count;
+		float x = _get_start_x(r->width) + grid * 0.5f;
+		struct glyph* g = r->head;
+		while (g) {
+			if (L.style->align_v == VA_TILE) {
+				cb(g->unicode, x, y, g->w, g->h, y, ud);
+			} else {
+				cb(g->unicode, x, y + g->y - g->h * 0.5f, g->w, g->h, y, ud);
+			}
+			x += grid;
+			g = g->next;
+		}
+	} else {
 		float x = _get_start_x(r->width);
 		struct glyph* g = r->head;
 		while (g) {
-			cb(g->unicode, x + g->x + g->w * 0.5f, y + g->y - g->h * 0.5f, g->w, g->h, y, ud);
+			if (L.style->align_v == VA_TILE) {
+				cb(g->unicode, x + g->x + g->w * 0.5f, y, g->w, g->h, y, ud);
+			} else {
+				cb(g->unicode, x + g->x + g->w * 0.5f, y + g->y - g->h * 0.5f, g->w, g->h, y, ud);
+			}
 			x += g->out_width;
 			g = g->next;
 		}
-		y -= r->height * L.style->space_v;
-		r = r->next;
+	}
+}
+
+void 
+gtxt_layout_traverse(void (*cb)(int unicode, float x, float y, float w, float h, float row_y, void* ud), void* ud) {
+	if (L.row_count == 0) {
+		assert(!L.head);
+		return;
+	}
+	if (L.style->align_v == VA_TILE) {
+		float grid = (float)L.style->height / L.row_count;
+		float y = _get_start_y() -  grid * 0.5f;
+		struct row* r = L.head;
+		while (r) {
+			_layout_traverse_hori(r, y, cb, ud);
+			y -= grid;
+			r = r->next;
+		}
+	} else {
+		float y = _get_start_y();
+		struct row* r = L.head;
+		while (r) {
+			_layout_traverse_hori(r, y, cb, ud);
+			y -= r->height * L.style->space_v;
+			r = r->next;
+		}
 	}
 }
 

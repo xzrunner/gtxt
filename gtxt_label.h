@@ -15,14 +15,16 @@ enum gtxt_hori_align {
 	HA_LEFT		= 0,
 	HA_RIGHT	= 1,
 	HA_CENTER	= 2,
-	HA_AUTO		= 3
+	HA_AUTO		= 3,
+	HA_TILE		= 4
 };
 
 enum gtxt_vert_align {
 	VA_TOP		= 0,
 	VA_BOTTOM	= 1,
 	VA_CENTER	= 2,
-	VA_AUTO		= 3
+	VA_AUTO		= 3,
+	VA_TILE		= 4
 };
 
 struct gtxt_label_style {
