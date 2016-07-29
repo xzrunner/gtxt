@@ -66,7 +66,7 @@ struct layout {
 	float prev_tot_h;
 
 	struct glyph* prev_single_glyph;
-	enum GLYPH_TYPE connected_glyph_type;
+	enum CONNECTED_GLYPH_TYPE connected_glyph_type;
 
 	struct row* curr_row;
 };
