@@ -16,6 +16,8 @@
 #define OMIT_UNICODE 46
 #define OMIT_COUNT 3
 
+#define CONNECT_UNICODE 45
+
 #define MAX_ROW_INDENT 0.25f
 
 struct glyph {
@@ -42,6 +44,13 @@ struct row {
 	struct row* next;
 };
 
+enum CONNECTED_GLYPH_TYPE
+{
+	CGT_NULL = 0,
+	CGT_NUMBER,
+	CGT_LETTER,
+};
+
 struct layout {
 	const struct gtxt_label_style* style;
 
@@ -55,6 +64,9 @@ struct layout {
 	size_t row_cap;
 
 	float prev_tot_h;
+
+	struct glyph* prev_single_glyph;
+	enum GLYPH_TYPE connected_glyph_type;
 
 	struct row* curr_row;
 };
@@ -192,6 +204,9 @@ gtxt_layout_begin(const struct gtxt_label_style* style) {
 
 	L.prev_tot_h = 0;
 
+	L.prev_single_glyph = NULL;
+	L.connected_glyph_type = CGT_NULL;
+
 	L.curr_row = _new_row();
 	L.head = L.curr_row;
 	L.row_count = 1;
@@ -253,6 +268,9 @@ _new_glyph() {
 
 static inline bool
 _new_line() {
+	L.prev_single_glyph = NULL;
+	L.connected_glyph_type = CGT_NULL;
+
 	float h = L.curr_row->height * L.style->space_v;
 	L.prev_tot_h += h;
 	// over label height
@@ -288,6 +306,34 @@ _add_glyph(struct glyph* g) {
 }
 
 static inline bool
+_is_letter(int unicode) {
+	return 
+		(unicode >= 97 && unicode <= 122)	||		// a-z
+		(unicode >= 65 && unicode <= 90);			// A-Z
+}
+
+static inline bool
+_is_number(int unicode) {
+	return 
+		(unicode >= 48 && unicode <= 57) ||		// 0-9
+		unicode == 46		||		// .
+		unicode == 37		||		// %
+		unicode == 45		||		// -
+		unicode == 43;				// +
+}
+
+static inline enum CONNECTED_GLYPH_TYPE
+_get_connected_glyph_type(int unicode) {
+	if (_is_number(unicode)) {
+		return CGT_NUMBER;
+	} else if (_is_letter(unicode)) {
+		return CGT_LETTER;
+	} else {
+		return CGT_NULL;
+	}
+}
+
+static inline bool
 _is_punctuation(int unicode) {
 	return 
 		unicode == 65292	||		// £¬
@@ -313,36 +359,167 @@ _is_punctuation(int unicode) {
 		unicode == 39;				// '
 }
 
+static int
+_remove_glyph_to_end(struct glyph* g) {
+	int count = 0;
+	struct glyph* curr = g;
+	while (curr) {
+		++count;
+		struct glyph* next = curr->next;
+		curr->next = L.glyph_freelist;
+		L.glyph_freelist = curr;
+		curr = next;
+	}
+	return count;
+}
+
 static enum GLO_STATUS
-_handle_new_line(int unicode, struct gtxt_glyph_layout* g_layout, float w) {
- 	if (unicode == '\n') {
- 		if (L.curr_row->height == 0) {
- 			L.curr_row->height = g_layout->metrics_height;
- 		}
- 		if (!_new_line()) {
- 			return GLOS_FULL;
- 		} else {
- 			return GLOS_NEWLINE;
- 		}
- 	} else if (L.curr_row->width + w + L.curr_row->offset > L.style->width) {
- 		if (L.curr_row->height == 0) {
- 			L.curr_row->height = g_layout->metrics_height;
- 		}
- 		if (_is_punctuation(unicode)) {
- 			L.curr_row->offset = L.style->width - L.curr_row->width - w;
-			if (-L.curr_row->offset / L.style->width > MAX_ROW_INDENT) {
-				L.curr_row->offset = L.style->width - L.curr_row->width;
-				if (!_new_line()) {
-					return GLOS_FULL;
-				}
-			}
- 		} else {
- 			if (!_new_line()) {
- 				return GLOS_FULL;
- 			}
- 		}
- 	}
+_handle_new_line_force(struct gtxt_glyph_layout* g_layout) {
+	if (L.curr_row->height == 0) {
+		L.curr_row->height = g_layout->metrics_height;
+	}
+	if (!_new_line()) {
+		return GLOS_FULL;
+	} else {
+		return GLOS_NEWLINE;
+	}
+}
+
+static enum GLO_STATUS
+_new_line_for_punctuation(float w) {
+	L.curr_row->offset = L.style->width - L.curr_row->width - w;
+	if (-L.curr_row->offset / L.style->width > MAX_ROW_INDENT) {
+		L.curr_row->offset = L.style->width - L.curr_row->width;
+		if (!_new_line()) {
+			return GLOS_FULL;
+		}
+	}
 	return GLOS_NORMAL;
+}
+
+static inline struct glyph*
+_row_backtracking(struct row* row, float remain) {
+	float w = 0;
+	struct glyph* curr = row->head;
+	struct glyph* prev = NULL;
+	while (prev != row->tail) {
+		w += curr->out_width;
+		if (w > remain) {
+			return prev;
+		}
+		prev = curr;
+		curr = curr->next;
+	}
+	return NULL;
+}
+
+static enum GLO_STATUS
+_add_connected_sym(struct gtxt_richtext_style* style, const struct gtxt_glyph_style* gs) {
+	struct gtxt_glyph_layout* layout = gtxt_glyph_get_layout(CONNECT_UNICODE, gs);
+	float conn_w = layout->advance * L.style->space_h;
+	if (conn_w > L.style->width) {
+		return GLOS_FULL;
+	}
+	struct glyph* prev_glyph = _row_backtracking(L.curr_row, L.style->width - conn_w);
+	struct glyph* next_glyph = prev_glyph->next;
+	struct row* prev_row = L.curr_row;
+
+	struct glyph* g = prev_glyph->next;
+	while (g) {
+		prev_row->width -= g->out_width;
+		--prev_row->glyph_count;
+		g = g->next;
+	}
+	prev_row->offset = 0;
+	prev_row->tail = prev_glyph;
+	prev_glyph->next = NULL;
+	gtxt_layout_single(CONNECT_UNICODE, NULL);
+	prev_row->offset = L.style->width - prev_row->width;
+
+	if (!_new_line()) {
+		_remove_glyph_to_end(next_glyph);
+		return GLOS_FULL;
+	} else {
+		struct glyph* g = next_glyph;
+		while (g) {
+			gtxt_layout_single(g->unicode, style);
+			g = g->next;
+		}
+		_remove_glyph_to_end(next_glyph);
+		return GLOS_CONNECTION;
+	}
+}
+
+static enum GLO_STATUS
+_move_connection2nextline(struct gtxt_richtext_style* style) {
+	struct glyph* prev_glyph = L.prev_single_glyph;
+	struct row* prev_row = L.curr_row;
+
+	struct glyph* g = prev_glyph->next;
+	while (g) {
+		prev_row->width -= g->out_width;
+		--prev_row->glyph_count;
+		g = g->next;
+	}
+	prev_row->offset = L.style->width - prev_row->width;
+	prev_row->tail = prev_glyph;
+
+	if (!_new_line()) {
+		_remove_glyph_to_end(prev_glyph->next);
+		prev_glyph->next = NULL;
+		return GLOS_FULL;
+	} else {
+		struct glyph* g = prev_glyph->next;
+		while (g) {
+			gtxt_layout_single(g->unicode, style);
+			g = g->next;
+		}
+		_remove_glyph_to_end(prev_glyph->next);
+		prev_glyph->next = NULL;
+		return GLOS_NORMAL;
+	}
+}
+
+static enum GLO_STATUS
+_new_line_for_connected(struct gtxt_richtext_style* style, const struct gtxt_glyph_style* gs, float w) {
+	L.curr_row->offset = L.style->width - L.curr_row->width - w;
+	if (-L.curr_row->offset / L.style->width <= MAX_ROW_INDENT) {
+		return GLOS_NORMAL;	
+	}
+	if (!L.prev_single_glyph) {
+		return _add_connected_sym(style, gs);
+	} else {
+		return _move_connection2nextline(style);
+	}
+}
+
+static enum GLO_STATUS
+_handle_new_line_too_long(int unicode, struct gtxt_richtext_style* style, const struct gtxt_glyph_style* gs, struct gtxt_glyph_layout* g_layout, float w) {
+	if (L.curr_row->height == 0) {
+		L.curr_row->height = g_layout->metrics_height;
+	}
+	if (_is_punctuation(unicode)) {
+		return _new_line_for_punctuation(w);
+	} else if (_get_connected_glyph_type(unicode) == L.connected_glyph_type &&
+		       L.connected_glyph_type != CGT_NULL) {
+		return _new_line_for_connected(style, gs, w);
+	} else {
+		if (!_new_line()) {
+			return GLOS_FULL;
+		}
+	}
+	return GLOS_NORMAL;
+}
+
+static enum GLO_STATUS
+_handle_new_line(int unicode, struct gtxt_richtext_style* style, const struct gtxt_glyph_style* gs, struct gtxt_glyph_layout* g_layout, float w) {
+ 	if (unicode == '\n') {
+		return _handle_new_line_force(g_layout);
+ 	} else if (L.curr_row->width + w + L.curr_row->offset > L.style->width) {
+		return _handle_new_line_too_long(unicode, style, gs, g_layout, w);
+	} else {
+		return GLOS_NORMAL;
+	}
 }
 
 enum GLO_STATUS 
@@ -355,8 +532,8 @@ gtxt_layout_single(int unicode, struct gtxt_richtext_style* style) {
 	}
 	struct gtxt_glyph_layout* g_layout = gtxt_glyph_get_layout(unicode, gs);
 	float w = g_layout->advance * L.style->space_h;
-	enum GLO_STATUS status = _handle_new_line(unicode, g_layout, w);
-	if (status != GLOS_NORMAL) {
+	enum GLO_STATUS status = _handle_new_line(unicode, style, gs, g_layout, w);
+	if (status == GLOS_NEWLINE || status == GLOS_FULL) {
 		return status;
 	}
 
@@ -384,13 +561,18 @@ gtxt_layout_single(int unicode, struct gtxt_richtext_style* style) {
 
 	_add_glyph(g);
 
-	return GLOS_NORMAL;
+	L.connected_glyph_type = _get_connected_glyph_type(unicode);
+	if (L.connected_glyph_type == CGT_NULL) {
+		L.prev_single_glyph = g;
+	}
+
+	return status;
 }
 
 void 
 gtxt_layout_multi(struct ds_array* unicodes) {
 	int glyph_sz = ds_array_size(unicodes);
-	_prepare_glyph_freelist(glyph_sz);
+	_prepare_glyph_freelist(glyph_sz * 2);
 
 	for (int i = 0; i < glyph_sz; ++i) {
 		int unicode = *(int*)ds_array_fetch(unicodes, i);
@@ -402,38 +584,18 @@ gtxt_layout_multi(struct ds_array* unicodes) {
 	}
 }
 
-static inline float
-_get_omit_sym_width(const struct gtxt_glyph_style* gs) {
-	struct gtxt_glyph_layout* layout = gtxt_glyph_get_layout(OMIT_UNICODE, gs);
-	float w = layout->advance * L.style->space_h;
-	return w;
-}
-
-int
-gtxt_layout_add_omit_sym(const struct gtxt_glyph_style* gs) {
-	float omit_w = _get_omit_sym_width(gs) * OMIT_COUNT;
-	if (omit_w > L.style->width) {
-		return 0;
-	}
+static inline int
+_row_make_room(struct row* row, float remain) {
 	int count = 0;
-	float max_w = L.style->width - omit_w;
-	struct row* row = L.curr_row;
 	float w = 0;
 	struct glyph* curr = row->head;
 	struct glyph* prev = NULL;
 	while (prev != row->tail) {
 		w += curr->out_width;
-		if (w > max_w) {
+		if (w > remain) {
 			row->width = w - curr->out_width;
 			if (prev) {
-				struct glyph* del_curr = curr;
-				while (del_curr) {
-					--count;
-					struct glyph* del_next = del_curr->next;
-					del_curr->next = L.glyph_freelist;
-					L.glyph_freelist = del_curr;
-					del_curr = del_next;
-				}
+				count = _remove_glyph_to_end(curr);
 				prev->next = NULL;
 				row->tail = prev;
 			}
@@ -442,16 +604,28 @@ gtxt_layout_add_omit_sym(const struct gtxt_glyph_style* gs) {
 		prev = curr;
 		curr = curr->next;
 	}
+	return count;
+}
+
+int
+gtxt_layout_add_omit_sym(const struct gtxt_glyph_style* gs) {
+	struct gtxt_glyph_layout* layout = gtxt_glyph_get_layout(OMIT_UNICODE, gs);
+	float omit_w = layout->advance * L.style->space_h * OMIT_COUNT;
+	if (omit_w > L.style->width) {
+		return 0;
+	}
+
+	float max_w = L.style->width - omit_w;
+	struct row* row = L.curr_row;
+	int rm_count = _row_make_room(row, max_w);
 
 	for (int i = 0; i < OMIT_COUNT; ++i) {
-		++count;
 		gtxt_layout_single(OMIT_UNICODE, NULL);
 	}
 	row->width += omit_w;
+	row->glyph_count += OMIT_COUNT - rm_count;
 
-	row->glyph_count += count;
-
-	return count;
+	return OMIT_COUNT - rm_count;
 }
 
 enum GLO_STATUS 
@@ -479,6 +653,9 @@ gtxt_layout_ext_sym(int width, int height) {
 	g->h = height;
 	g->out_width = width;
 	_add_glyph(g);
+
+	L.connected_glyph_type = CGT_NULL;
+	L.prev_single_glyph = g;
 
 	return GLOS_NORMAL;
 }

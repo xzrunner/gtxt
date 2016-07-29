@@ -17,7 +17,8 @@ enum GLO_STATUS
 {
 	GLOS_NORMAL = 0,
 	GLOS_NEWLINE,
-	GLOS_FULL
+	GLOS_FULL,
+	GLOS_CONNECTION
 };
 
 void gtxt_layout_release();

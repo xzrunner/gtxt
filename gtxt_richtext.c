@@ -542,7 +542,7 @@ gtxt_richtext_parser(const char* str, const struct gtxt_label_style* style,
 				token_disable = true;
 			}
 			int n = cb(&str[i], &rs.s, ud);
-			if (n == 0) {
+			if (n < 0) {
 				break;
 			}
 			i += n;
@@ -599,7 +599,7 @@ gtxt_richtext_parser_dynamic(const char* str, const struct gtxt_label_style* sty
 				glyph = 0;
 			}
 			int n = cb(&str[i], &rs.s, ud);
-			if (n == 0) {
+			if (n < 0) {
 				break;
 			}
 			i += n;

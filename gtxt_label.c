@@ -117,6 +117,9 @@ _draw_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void
 		}
 	} else {
 		struct layout_pos* pos = &params->result[params->idx++];
+		if (unicode != pos->unicode) {
+			len = 0;
+		}
 		_draw_unicode(str, len, style, pos, params);
 	}
 
@@ -153,8 +156,8 @@ gtxt_label_draw(const char* str, const struct gtxt_label_style* style,
 
 static inline int
 _layout_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void* ud) {
-	int len = _unicode_len(str[0]);
-	int unicode = _get_unicode(str, len);
+	int ret = _unicode_len(str[0]);
+	int unicode = _get_unicode(str, ret);
 
 	enum GLO_STATUS status = GLOS_NORMAL;
 	if (style->ext_sym_ud) {
@@ -165,6 +168,7 @@ _layout_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, vo
 		status = gtxt_layout_single(unicode, style);
 	}
 
+	int n = 0;
 	switch (status) {
 	case GLOS_NORMAL:
 		if (ud) {
@@ -173,16 +177,22 @@ _layout_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, vo
 		}
 		break;
 	case GLOS_FULL:
-		len = 0;
-		int n = gtxt_layout_add_omit_sym(&style->gs);
+		ret = -1;
+		n = gtxt_layout_add_omit_sym(&style->gs);
 		if (ud) {
 			int* count = (int*)ud;
 			*count += n;
 		}
 		break;
+	case GLOS_CONNECTION:
+		if (ud) {
+			int* count = (int*)ud;
+			*count += 2;
+		}
+		break;
 	}
 
-	return len;
+	return ret;
 }
 
 static inline void
