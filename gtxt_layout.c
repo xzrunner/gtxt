@@ -16,6 +16,8 @@
 #define OMIT_UNICODE 46
 #define OMIT_COUNT 3
 
+#define MAX_ROW_INDENT 0.25f
+
 struct glyph {
 	int unicode;
 
@@ -34,6 +36,8 @@ struct row {
 
 	struct glyph *head, *tail;
 	int glyph_count;
+
+	float offset;
 
 	struct row* next;
 };
@@ -220,6 +224,7 @@ gtxt_layout_end() {
 		r->head = NULL;
 		r->tail = NULL;
 		r->glyph_count = 0;
+		r->offset = 0;
 
 		r = r->next;
 	}
@@ -282,6 +287,64 @@ _add_glyph(struct glyph* g) {
 	++L.curr_row->glyph_count;
 }
 
+static inline bool
+_is_punctuation(int unicode) {
+	return 
+		unicode == 65292	||		// £¬
+		unicode == 12290	||		// ¡£
+		unicode == 65311	||		// £¿
+		unicode == 8220		||		// ¡°
+		unicode == 8221		||		// ¡±
+		unicode == 65281	||		// £¡
+		unicode == 65307	||		// ;
+		unicode == 65306	||		// :
+		unicode == 8216		||		//¡®
+		unicode == 8217		||		// ¡¯
+		unicode == 12289	||		// ¡¢
+		
+		unicode == 44		||		// ,
+		unicode == 46		||		// .
+		unicode == 63		||		// ?
+		unicode == 39		||		// '
+		unicode == 34		||		// "
+		unicode == 33		||		// !
+		unicode == 59		||		// ;
+		unicode == 58		||		// :
+		unicode == 39;				// '
+}
+
+static enum GLO_STATUS
+_handle_new_line(int unicode, struct gtxt_glyph_layout* g_layout, float w) {
+ 	if (unicode == '\n') {
+ 		if (L.curr_row->height == 0) {
+ 			L.curr_row->height = g_layout->metrics_height;
+ 		}
+ 		if (!_new_line()) {
+ 			return GLOS_FULL;
+ 		} else {
+ 			return GLOS_NEWLINE;
+ 		}
+ 	} else if (L.curr_row->width + w + L.curr_row->offset > L.style->width) {
+ 		if (L.curr_row->height == 0) {
+ 			L.curr_row->height = g_layout->metrics_height;
+ 		}
+ 		if (_is_punctuation(unicode)) {
+ 			L.curr_row->offset = L.style->width - L.curr_row->width - w;
+			if (-L.curr_row->offset / L.style->width > MAX_ROW_INDENT) {
+				L.curr_row->offset = L.style->width - L.curr_row->width;
+				if (!_new_line()) {
+					return GLOS_FULL;
+				}
+			}
+ 		} else {
+ 			if (!_new_line()) {
+ 				return GLOS_FULL;
+ 			}
+ 		}
+ 	}
+	return GLOS_NORMAL;
+}
+
 enum GLO_STATUS 
 gtxt_layout_single(int unicode, struct gtxt_richtext_style* style) {
 	const struct gtxt_glyph_style* gs;
@@ -292,18 +355,11 @@ gtxt_layout_single(int unicode, struct gtxt_richtext_style* style) {
 	}
 	struct gtxt_glyph_layout* g_layout = gtxt_glyph_get_layout(unicode, gs);
 	float w = g_layout->advance * L.style->space_h;
-	if (unicode == '\n' || L.curr_row->width + w > L.style->width) {
-		if (L.curr_row->height == 0) {
-			L.curr_row->height = g_layout->metrics_height;
-		}
-		if (!_new_line()) {
-			return GLOS_FULL;
-		}
-		if (unicode == '\n') {
-			return GLOS_NEWLINE;
-		}
-	} 
-	
+	enum GLO_STATUS status = _handle_new_line(unicode, g_layout, w);
+	if (status != GLOS_NORMAL) {
+		return status;
+	}
+
 	struct glyph* g = _new_glyph();
 	assert(g);
 	g->unicode = unicode;
@@ -504,7 +560,8 @@ _layout_traverse_hori(struct row* r, float y, void (*cb)(int unicode, float x, f
 	}
 	if (L.style->align_h == HA_TILE) {
 		float grid = (float)L.style->width / r->glyph_count;
-		float x = _get_start_x(r->width) + grid * 0.5f;
+		float x = _get_start_x(r->width + r->offset) + grid * 0.5f;
+		float dx = r->offset / r->glyph_count;
 		struct glyph* g = r->head;
 		while (g) {
 			if (L.style->align_v == VA_TILE) {
@@ -512,11 +569,12 @@ _layout_traverse_hori(struct row* r, float y, void (*cb)(int unicode, float x, f
 			} else {
 				cb(g->unicode, x, y + g->y - g->h * 0.5f, g->w, g->h, y, ud);
 			}
-			x += grid;
+			x += grid + dx;
 			g = g->next;
 		}
 	} else {
-		float x = _get_start_x(r->width);
+		float x = _get_start_x(r->width + r->offset);
+		float dx = r->offset / r->glyph_count;
 		struct glyph* g = r->head;
 		while (g) {
 			if (L.style->align_v == VA_TILE) {
@@ -524,7 +582,7 @@ _layout_traverse_hori(struct row* r, float y, void (*cb)(int unicode, float x, f
 			} else {
 				cb(g->unicode, x + g->x + g->w * 0.5f, y + g->y - g->h * 0.5f, g->w, g->h, y, ud);
 			}
-			x += g->out_width;
+			x += g->out_width + dx;
 			g = g->next;
 		}
 	}
