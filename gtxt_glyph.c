@@ -2,6 +2,7 @@
 #include "gtxt_freetype.h"
 
 #include <ds_hash.h>
+#include <ds_freelist.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -33,64 +34,19 @@ struct glyph {
 	struct glyph *prev, *next;
 };
 
-struct bitmap_buf {
-	struct glyph_bitmap* freelist;
-	struct glyph_bitmap *head, *tail;
-};
-
-struct glyph_buf {
-	struct glyph* freelist;
-	struct glyph *head, *tail;
-};
+DS_FREELIST(glyph_bitmap)
+DS_FREELIST(glyph)
 
 struct glyph_cache {
 	struct ds_hash* hash;
 
-	struct bitmap_buf bmp_buf;
-	struct glyph_buf gly_buf;
+	struct ds_freelist_glyph_bitmap bmp_buf;
+	struct ds_freelist_glyph gly_buf;
 };
 
 static struct glyph_cache* C;
 
 static uint32_t* (*CHAR_GEN)(const char* str, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) = NULL;
-
-#define DECONNECT_NODE(list, node) do { \
-	if (list.head == node) { \
-		list.head = node->next; \
-	} \
-	if (list.tail == node) { \
-		list.tail = node->prev; \
-	} \
-	if (node->prev) { \
-		node->prev->next = node->next; \
-	} \
-	if (node->next) { \
-		node->next->prev = node->prev; \
-	} \
-} while (0)
-
-#define PUSH_NODE_TO_FREELIST(list, node) do { \
-	DECONNECT_NODE(list, node); \
-	node->prev = NULL; \
-	node->next = list.freelist; \
-	if (list.freelist) { \
-		list.freelist->prev = node; \
-	} \
-	list.freelist = node; \
-} while (0)
-
-#define MOVE_NODE_TO_TAIL(list, node) do { \
-	DECONNECT_NODE(list, node); \
-	if (!list.head) { \
-		list.head = node; \
-	} \
-	node->prev = list.tail; \
-	if (list.tail) { \
-		list.tail->next = node; \
-	} \
-	node->next = NULL; \
-	list.tail = node; \
-} while (0)
 
 static inline unsigned int 
 _hash_func(int hash_sz, void* key) {
@@ -150,27 +106,8 @@ gtxt_glyph_create(int cap_bitmap, int cap_layout,
 
 	C->hash = ds_hash_create(cap_layout, cap_layout * 2, 0.5f, _hash_func, _equal_func);
 
-	// bitmap
-	C->bmp_buf.freelist = (struct glyph_bitmap*)(C + 1);
-	for (int i = 0; i < cap_bitmap - 1; ++i) {
-		C->bmp_buf.freelist[i].next = &C->bmp_buf.freelist[i + 1];
-	}
-	C->bmp_buf.freelist[cap_bitmap - 1].next = NULL;
-	C->bmp_buf.freelist[0].prev = NULL;
-	for (int i = 1; i < cap_bitmap; ++i) {
-		C->bmp_buf.freelist[i].prev = &C->bmp_buf.freelist[i-1];
-	}
-
-	// layout
-	C->gly_buf.freelist = (struct glyph*)((intptr_t)C->bmp_buf.freelist + bitmap_sz);
-	for (int i = 0; i < cap_layout - 1; ++i) {
-		C->gly_buf.freelist[i].next = &C->gly_buf.freelist[i+1];
-	}
-	C->gly_buf.freelist[cap_layout - 1].next = NULL;
-	C->gly_buf.freelist[0].prev = NULL;
-	for (int i = 1; i < cap_layout; ++i) {
-		C->gly_buf.freelist[i].prev = &C->gly_buf.freelist[i-1];
-	}
+	DS_FREELIST_CREATE(glyph_bitmap, C->bmp_buf, cap_bitmap, C + 1);
+	DS_FREELIST_CREATE(glyph, C->gly_buf, cap_layout, (intptr_t)C->bmp_buf.freelist + bitmap_sz);
 }
 
 void 
@@ -196,7 +133,7 @@ _new_node() {
 	if (!C->gly_buf.freelist) {
 		struct glyph* g = C->gly_buf.head;
 		assert(g);
-		PUSH_NODE_TO_FREELIST(C->gly_buf, g);
+		DS_FREELIST_PUSH_NODE_TO_FREELIST(C->gly_buf, g);
 		ds_hash_remove(C->hash, &g->key);
 		if (g->bitmap) {
 // 			g->bitmap->valid = false;
@@ -206,21 +143,8 @@ _new_node() {
 		}
 	}
 
-	assert(C->gly_buf.freelist);
-	struct glyph* g = C->gly_buf.freelist;
-	C->gly_buf.freelist = g->next;
-	if (!C->gly_buf.head) {
-		assert(!C->gly_buf.tail);
-		C->gly_buf.head = C->gly_buf.tail = g;
-		g->prev = g->next = NULL;
-	} else {
-		assert(C->gly_buf.tail);
-		C->gly_buf.tail->next = g;
-		g->prev = C->gly_buf.tail;
-		g->next = NULL;
-		C->gly_buf.tail = g;
-	}
-
+	struct glyph* g = NULL;
+	DS_FREELIST_POP_NODE_FROM_FREELIST(C->gly_buf, g);
 	if (g->bitmap) {
 		g->bitmap->valid = false;
 		g->bmp_version = 0;
@@ -258,7 +182,7 @@ gtxt_glyph_get_bitmap(int unicode, const struct gtxt_glyph_style* style, struct 
 
 	struct glyph* g = (struct glyph*)ds_hash_query(C->hash, &key);
 	if (g) {
-		MOVE_NODE_TO_TAIL(C->gly_buf, g);
+		DS_FREELIST_MOVE_NODE_TO_TAIL(C->gly_buf, g);
 		*layout = g->layout;
 	} else {
 		g = _new_node();
@@ -268,7 +192,7 @@ gtxt_glyph_get_bitmap(int unicode, const struct gtxt_glyph_style* style, struct 
 
 	if (g->bitmap && g->bitmap->version != g->bmp_version) {
 		++g->bitmap->version;
-		PUSH_NODE_TO_FREELIST(C->bmp_buf, g->bitmap);
+		DS_FREELIST_PUSH_NODE_TO_FREELIST(C->bmp_buf, g->bitmap);
 		g->bitmap = NULL;
 		g->bmp_version = 0;
 	}
@@ -281,7 +205,7 @@ gtxt_glyph_get_bitmap(int unicode, const struct gtxt_glyph_style* style, struct 
 			// shouldn't pass head directly!!
 			// DECONNECT_NODE may change the params
 			struct glyph_bitmap* bmp = C->bmp_buf.head;
-			PUSH_NODE_TO_FREELIST(C->bmp_buf, bmp);
+			DS_FREELIST_PUSH_NODE_TO_FREELIST(C->bmp_buf, bmp);
 		}
 
 		g->bitmap = C->bmp_buf.freelist;
@@ -317,6 +241,6 @@ gtxt_glyph_get_bitmap(int unicode, const struct gtxt_glyph_style* style, struct 
 		ret_buf = g->bitmap->buf;
 	}
 
-	MOVE_NODE_TO_TAIL(C->bmp_buf, g->bitmap);
+	DS_FREELIST_MOVE_NODE_TO_TAIL(C->bmp_buf, g->bitmap);
 	return ret_buf;
 }
