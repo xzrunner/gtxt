@@ -1,5 +1,6 @@
 #include "gtxt_user_font.h"
 #include "gtxt_glyph.h"
+#include "gtxt_util.h"
 
 #include <ds_hash.h>
 #include <dtex_facade.h>
@@ -89,13 +90,18 @@ gtxt_uf_add_font(const char* name, int cap) {
 }
 
 void 
-gtxt_uf_add_char(int font, int unicode, int w, int h, void* ud) {
+gtxt_uf_add_char(int font, const char* str, int w, int h, void* ud) {
+	int str_len = strlen(str);
+
 	if (UF->chars_count >= MAX_CHARS) {
 		LOGW("%s", "gtxt_uf_add_char char full.");
 		return;
 	}
 
 	assert(font < UF->fonts_count);
+
+	int len = gtxt_unicode_len(str[0]);
+	int unicode = gtxt_get_unicode(str, len);
 
 	struct character* c = &UF->chars[UF->chars_count++];
 	c->unicode = unicode;

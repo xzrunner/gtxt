@@ -3,6 +3,7 @@
 #include "gtxt_richtext.h"
 #include "gtxt_adapter.h"
 #include "gtxt_glyph.h"
+#include "gtxt_util.h"
 
 #include <ds_array.h>
 
@@ -11,52 +12,12 @@
 
 static struct ds_array* UNICODE_BUF;
 
-static inline int
-_unicode_len(const char chr) {
-	uint8_t c = (uint8_t)chr;
-	if ((c&0x80) == 0) {
-		return 1;
-	} else if ((c&0xe0) == 0xc0) {
-		return 2;
-	} else if ((c&0xf0) == 0xe0) {
-		return 3;
-	} else if ((c&0xf8) == 0xf0) {
-		return 4;
-	} else if ((c&0xfc) == 0xf8) {
-		return 5;
-	} else {
-		return 6;
-	}
-}
-
-//static inline int
-//_get_unicode_and_char(const char* str, int n, char* utf8) {
-//	int i;
-//	utf8[0] = str[0];
-//	int unicode = utf8[0] & ((1 << (8 - n)) - 1);
-//	for (i = 1; i < n; ++i) {
-//		utf8[i] = str[i];
-//		unicode = unicode << 6 | ((uint8_t)utf8[i] & 0x3f);
-//	}
-//	utf8[i] = 0;
-//	return unicode;
-//}
-
 struct draw_params {
 	const struct gtxt_label_style* style;
 
 	void (*render)(int id, float* texcoords, float x, float y, float w, float h, struct gtxt_draw_style* ds, void* ud);
 	void* ud;
 };
-
-static inline int
-_get_unicode(const char* str, int n) {
-	int unicode = str[0] & ((1 << (8 - n)) - 1);
-	for (int i = 1; i < n; ++i) {
-		unicode = unicode << 6 | ((uint8_t)str[i] & 0x3f);
-	}
-	return unicode;
-}
 
 static inline void
 _draw_glyph_cb(int unicode, float x, float y, float w, float h, float row_y, void* ud) {
@@ -98,14 +59,14 @@ _draw_unicode(const char* str, int unicode_len, struct gtxt_richtext_style* styl
 
 static inline int
 _draw_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void* ud) {
-	int len = _unicode_len(str[0]);
+	int len = gtxt_unicode_len(str[0]);
 
 	struct draw_richtext_params* params = (struct draw_richtext_params*)ud;
 	if (params->idx >= params->sz) {
 		return len;
 	}
 
-	int unicode = _get_unicode(str, len);
+	int unicode = gtxt_get_unicode(str, len);
 	if (unicode == '\n') {
 		return len;
 	} else if (style->ext_sym_ud) {
@@ -135,8 +96,8 @@ gtxt_label_draw(const char* str, const struct gtxt_label_style* style,
 
 	int str_len = strlen(str);
 	for (int i = 0; i < str_len; ) {
-		int len = _unicode_len(str[i]);
-		int unicode = _get_unicode(str + i, len);
+		int len = gtxt_unicode_len(str[i]);
+		int unicode = gtxt_get_unicode(str + i, len);
 		ds_array_add(UNICODE_BUF, &unicode);
 		i += len;
 	}
@@ -156,8 +117,8 @@ gtxt_label_draw(const char* str, const struct gtxt_label_style* style,
 
 static inline int
 _layout_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void* ud) {
-	int ret = _unicode_len(str[0]);
-	int unicode = _get_unicode(str, ret);
+	int ret = gtxt_unicode_len(str[0]);
+	int unicode = gtxt_get_unicode(str, ret);
 
 	enum GLO_STATUS status = GLOS_NORMAL;
 	if (style->ext_sym_ud) {
@@ -248,8 +209,8 @@ void
 gtxt_label_reload(const char* str, const struct gtxt_label_style* style) {
  	int str_len = strlen(str);
  	for (int i = 0; i < str_len; ) {
- 		int len = _unicode_len(str[i]);
- 		int unicode = _get_unicode(str + i, len);
+ 		int len = gtxt_unicode_len(str[i]);
+ 		int unicode = gtxt_get_unicode(str + i, len);
 		gtxt_reload_glyph(unicode, &style->gs);
  		i += len;
  	}
@@ -257,8 +218,8 @@ gtxt_label_reload(const char* str, const struct gtxt_label_style* style) {
 
 static inline int
 _reload_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void* ud) {
-	int len = _unicode_len(str[0]);
-	int unicode = _get_unicode(str, len);
+	int len = gtxt_unicode_len(str[0]);
+	int unicode = gtxt_get_unicode(str, len);
 	if (unicode == '\n') {
 		;
 	} else if (style->ext_sym_ud) {
@@ -288,14 +249,14 @@ struct query_richtext_params {
 
 static inline int
 _query_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void* ud) {
-	int len = _unicode_len(str[0]);
+	int len = gtxt_unicode_len(str[0]);
 
 	struct query_richtext_params* params = (struct query_richtext_params*)ud;
 	if (params->idx >= params->sz) {
 		return len;
 	}
 
-	int unicode = _get_unicode(str, len);
+	int unicode = gtxt_get_unicode(str, len);
 	if (unicode == '\n') {
 		return len;
 	} else if (style->ext_sym_ud) {

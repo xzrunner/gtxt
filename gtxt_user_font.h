@@ -17,7 +17,7 @@ void gtxt_uf_create();
 void gtxt_uf_release();
 
 int gtxt_uf_add_font(const char* name, int cap);
-void gtxt_uf_add_char(int font, int unicode, int w, int h, void* ud);
+void gtxt_uf_add_char(int font, const char* str, int w, int h, void* ud);
 
 float* gtxt_uf_query_and_load(int font, int unicode, struct dtex_glyph* glyph);
 
