@@ -1,5 +1,7 @@
 #include "gtxt_adapter.h"
 #include "gtxt_glyph.h"
+#include "gtxt_freetype.h"
+#include "gtxt_user_font.h"
 
 #include <dtex_cg.h>
 
@@ -29,6 +31,21 @@ _init_glyph(int unicode, const struct gtxt_glyph_style* style, struct dtex_glyph
 	glyph->s.edge_color	= style->edge_color.integer;
 }
 
+static float*
+_load_ft_char(int unicode, const struct gtxt_glyph_style* gs, struct dtex_glyph* glyph) {
+	struct gtxt_glyph_layout layout;
+	uint32_t* buf = gtxt_glyph_get_bitmap(unicode, gs, &layout);
+	if (!buf) {
+		return NULL;
+	}
+	float* texcoords = dtex_cg_load_bmp(CG, buf, layout.sizer.width, layout.sizer.height, glyph);
+	if (!texcoords) {
+		dtex_cg_clear(CG);
+		return NULL;
+	}
+	return texcoords;
+}
+
 void
 gtxt_draw_glyph(int unicode, float x, float y, float w, float h, 
                 const struct gtxt_glyph_style* gs, struct gtxt_draw_style* ds, 
@@ -43,14 +60,14 @@ gtxt_draw_glyph(int unicode, float x, float y, float w, float h,
 	int uid = 0;
 	float* texcoords = dtex_cg_query(CG, &g, &uid);
 	if (!texcoords) {
-		struct gtxt_glyph_layout layout;
-		uint32_t* buf = gtxt_glyph_get_bitmap(unicode, gs, &layout);
-		if (!buf) {
-			return;
+		int ft_count = gtxt_ft_get_font_cout();
+		if (gs->font < ft_count) {
+			texcoords = _load_ft_char(unicode, gs, &g);
+		} else {
+			int uf_font = gs->font - ft_count;
+			texcoords = gtxt_uf_query_and_load(uf_font, unicode, &g);			
 		}
-		texcoords = dtex_cg_load(CG, buf, layout.sizer.width, layout.sizer.height, &g);
 		if (!texcoords) {
-			dtex_cg_clear(CG);
 			return;
 		}
 	}

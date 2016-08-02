@@ -1,5 +1,6 @@
 #include "gtxt_glyph.h"
 #include "gtxt_freetype.h"
+#include "gtxt_user_font.h"
 
 #include <ds_hash.h>
 #include <ds_freelist.h>
@@ -165,7 +166,12 @@ gtxt_glyph_get_layout(int unicode, const struct gtxt_glyph_style* style) {
 	} else {
 		g = _new_node();
 
-		gtxt_ft_get_layout(unicode, style, &g->layout);
+		int ft_count = gtxt_ft_get_font_cout();
+		if (style->font < ft_count) {
+			gtxt_ft_get_layout(unicode, style, &g->layout);
+		} else {
+			gtxt_uf_get_layout(unicode, ft_count - style->font, &g->layout);
+		}
 
 		g->key = key;
 		ds_hash_insert(C->hash, &g->key, g, true);

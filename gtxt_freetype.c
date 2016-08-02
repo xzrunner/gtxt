@@ -107,6 +107,11 @@ gtxt_ft_add_font(const char* name, const char* filepath) {
 	return FT->count - 1;
 }
 
+int 
+gtxt_ft_get_font_cout() {
+	return FT->count;
+}
+
 static bool
 _draw_default(struct font* font, FT_UInt gindex, union gtxt_color color, struct gtxt_glyph_layout* layout, 
 			  void (*cb)(FT_Bitmap* bitmap, union gtxt_color color)) {
