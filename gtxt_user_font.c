@@ -4,6 +4,7 @@
 
 #include <ds_hash.h>
 #include <dtex_facade.h>
+#include <dtex_cg.h>
 #include <logger.h>
 
 #include <stdbool.h>
@@ -91,8 +92,6 @@ gtxt_uf_add_font(const char* name, int cap) {
 
 void 
 gtxt_uf_add_char(int font, const char* str, int w, int h, void* ud) {
-	int str_len = strlen(str);
-
 	if (UF->chars_count >= MAX_CHARS) {
 		LOGW("%s", "gtxt_uf_add_char char full.");
 		return;

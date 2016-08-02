@@ -8,8 +8,8 @@ extern "C"
 
 #include <stdint.h>
 
-struct gtxt_glyph_style;
 struct gtxt_glyph_layout;
+struct dtex_glyph;
 
 void gtxt_uf_cb_init(float* (*load_and_query)(void* ud, struct dtex_glyph* glyph));
 
