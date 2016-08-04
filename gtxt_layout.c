@@ -18,7 +18,8 @@
 
 #define CONNECT_UNICODE 45
 
-#define MAX_ROW_INDENT 0.25f
+#define MAX_ROW_CONDENSE_LARGE 0.25f
+#define MAX_ROW_CONDENSE_SMALL 0.15f
 
 struct glyph {
 	int unicode;
@@ -386,13 +387,21 @@ _handle_new_line_force(struct gtxt_glyph_layout* g_layout) {
 }
 
 static enum GLO_STATUS
-_new_line_for_punctuation(float w) {
+_new_line_with_condense(float w, float max_condense) {
 	L.curr_row->offset = L.style->width - L.curr_row->width - w;
-	if (-L.curr_row->offset / L.style->width > MAX_ROW_INDENT) {
+	if (-L.curr_row->offset / L.style->width > max_condense) {
 		L.curr_row->offset = L.style->width - L.curr_row->width;
 		if (!_new_line()) {
 			return GLOS_FULL;
 		}
+	}
+	return GLOS_NORMAL;
+}
+
+static enum GLO_STATUS
+_new_line_directly(float w, float max_condense) {
+	if (!_new_line()) {
+		return GLOS_FULL;
 	}
 	return GLOS_NORMAL;
 }
@@ -483,7 +492,7 @@ _move_connection2nextline(struct gtxt_richtext_style* style) {
 static enum GLO_STATUS
 _new_line_for_connected(struct gtxt_richtext_style* style, const struct gtxt_glyph_style* gs, float w) {
 	L.curr_row->offset = L.style->width - L.curr_row->width - w;
-	if (-L.curr_row->offset / L.style->width <= MAX_ROW_INDENT) {
+	if (-L.curr_row->offset / L.style->width <= MAX_ROW_CONDENSE_SMALL) {
 		return GLOS_NORMAL;	
 	}
 	if (!L.prev_single_glyph) {
@@ -499,14 +508,12 @@ _handle_new_line_too_long(int unicode, struct gtxt_richtext_style* style, const 
 		L.curr_row->height = g_layout->metrics_height;
 	}
 	if (_is_punctuation(unicode)) {
-		return _new_line_for_punctuation(w);
+		return _new_line_with_condense(w, MAX_ROW_CONDENSE_LARGE);
 	} else if (_get_connected_glyph_type(unicode) == L.connected_glyph_type &&
 		       L.connected_glyph_type != CGT_NULL) {
 		return _new_line_for_connected(style, gs, w);
 	} else {
-		if (!_new_line()) {
-			return GLOS_FULL;
-		}
+		return _new_line_with_condense(w, MAX_ROW_CONDENSE_SMALL);
 	}
 	return GLOS_NORMAL;
 }
