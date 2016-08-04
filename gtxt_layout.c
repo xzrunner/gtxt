@@ -19,7 +19,7 @@
 #define CONNECT_UNICODE 45
 
 #define MAX_ROW_CONDENSE_LARGE 0.25f
-#define MAX_ROW_CONDENSE_SMALL 0.15f
+#define MAX_ROW_CONDENSE_SMALL 0.10f
 
 struct glyph {
 	int unicode;
