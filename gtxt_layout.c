@@ -393,9 +393,12 @@ _handle_new_line_force(struct gtxt_glyph_layout* g_layout) {
 }
 
 static enum GLO_STATUS
-_new_line_with_condense(float w, float max_condense) {
-	L.curr_row->offset = L.style->width - L.curr_row->width - w;
-	if (-L.curr_row->offset / L.style->width > max_condense) {
+_new_line_for_common(float w, float max_condense) {
+	float offset = L.style->width - L.curr_row->width - w;
+	float room = L.style->width - L.curr_row->width;
+	if (room > w * 0.5f && -offset / L.style->width < max_condense) {
+		L.curr_row->offset = offset;
+	} else {
 		L.curr_row->offset = L.style->width - L.curr_row->width;
 		if (!_new_line()) {
 			return GLOS_FULL;
@@ -536,7 +539,7 @@ _handle_new_line_too_long(int unicode, struct gtxt_richtext_style* style, const 
 		       L.connected_glyph_type != CGT_NULL) {
 		return _new_line_for_connected(style, gs, w);
 	} else {
-		return _new_line_with_condense(w, MAX_ROW_CONDENSE);
+		return _new_line_for_common(w, MAX_ROW_CONDENSE);
 	}
 	return GLOS_NORMAL;
 }
