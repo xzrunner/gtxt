@@ -742,10 +742,15 @@ _layout_traverse_hori(struct row* r, float y, void (*cb)(int unicode, float x, f
 		assert(!r->head && !r->tail);
 		return;
 	}
+	float row_offset = r->offset;
+	// only one char
+	if (r->head && !r->head->next) {
+		row_offset = 0;
+	}
 	if (L.style->align_h == HA_TILE) {
 		float grid = (float)L.style->width / r->glyph_count;
-		float x = _get_start_x(r->width + r->offset) + grid * 0.5f;
-		float dx = r->offset / r->glyph_count;
+		float x = _get_start_x(r->width + row_offset) + grid * 0.5f;
+		float dx = row_offset / r->glyph_count;
 		struct glyph* g = r->head;
 		while (g) {
 			if (L.style->align_v == VA_TILE) {
@@ -757,8 +762,8 @@ _layout_traverse_hori(struct row* r, float y, void (*cb)(int unicode, float x, f
 			g = g->next;
 		}
 	} else {
-		float x = _get_start_x(r->width + r->offset);
-		float dx = r->offset / r->glyph_count;
+		float x = _get_start_x(r->width + row_offset);
+		float dx = row_offset / r->glyph_count;
 		struct glyph* g = r->head;
 		while (g) {
 			if (L.style->align_v == VA_TILE) {
