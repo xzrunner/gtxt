@@ -91,7 +91,7 @@ gtxt_ft_add_font(const char* name, const char* filepath) {
 	size_t sz = fs_size(file);
 	f->buf = (unsigned char*)malloc(sz);
 
-	if (fs_read(file, f->buf, sz) != 1) {
+	if (fs_read(file, f->buf, sz) != sz) {
 		free(f->buf);
 		return -1;
 	}
