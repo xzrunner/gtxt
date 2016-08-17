@@ -428,7 +428,7 @@ _row_backtracking(struct row* row, float remain) {
 		prev = curr;
 		curr = curr->next;
 	}
-	return NULL;
+	return prev;
 }
 
 static enum GLO_STATUS
