@@ -439,6 +439,9 @@ _add_connected_sym(struct gtxt_richtext_style* style, const struct gtxt_glyph_st
 		return GLOS_FULL;
 	}
 	struct glyph* prev_glyph = _row_backtracking(L.curr_row, L.style->width - conn_w);
+	if (!prev_glyph) {
+		return GLOS_FULL;
+	}
 	struct glyph* next_glyph = prev_glyph->next;
 	struct row* prev_row = L.curr_row;
 
