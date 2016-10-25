@@ -354,7 +354,11 @@ _is_punctuation(int unicode) {
 		unicode == 8216		||		//¡®
 		unicode == 8217		||		// ¡¯
 		unicode == 12289	||		// ¡¢
-		
+		unicode == 65289	||		// £©
+		unicode == 12305	||		// ¡¿
+		unicode == 12303	||		// ¡»
+		unicode == 12299	||		// ¡·
+
 		unicode == 44		||		// ,
 		unicode == 46		||		// .
 		unicode == 63		||		// ?
@@ -363,7 +367,11 @@ _is_punctuation(int unicode) {
 		unicode == 33		||		// !
 		unicode == 59		||		// ;
 		unicode == 58		||		// :
-		unicode == 39;				// '
+		unicode == 39		||		// '
+		unicode == 41		||		// )
+		unicode == 93		||		// ]
+		unicode == 125		;		// }
+
 }
 
 static int
