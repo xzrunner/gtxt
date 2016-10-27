@@ -575,6 +575,9 @@ gtxt_layout_single(int unicode, struct gtxt_richtext_style* style) {
 		gs = &L.style->gs;
 	}
 	struct gtxt_glyph_layout* g_layout = gtxt_glyph_get_layout(unicode, gs);
+	if (!g_layout) {
+		return GLOS_NORMAL;
+	}
 	float w = g_layout->advance * L.style->space_h;
 	enum GLO_STATUS status = _handle_new_line(unicode, style, gs, g_layout, w);
 	if (status == GLOS_NEWLINE || status == GLOS_FULL) {

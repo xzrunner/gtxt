@@ -131,6 +131,10 @@ gtxt_glyph_release() {
 
 static inline struct glyph*
 _new_node() {
+	if (!C) {
+		return NULL;
+	}
+
 	if (!C->gly_buf.freelist) {
 		struct glyph* g = C->gly_buf.head;
 		assert(g);
@@ -156,6 +160,10 @@ _new_node() {
 
 struct gtxt_glyph_layout* 
 gtxt_glyph_get_layout(int unicode, const struct gtxt_glyph_style* style) {
+	if (!C) {
+		return NULL;
+	}
+
 	struct glyph_key key;
 	key.unicode = unicode;
 	key.s = *style;
@@ -182,6 +190,10 @@ gtxt_glyph_get_layout(int unicode, const struct gtxt_glyph_style* style) {
 
 uint32_t* 
 gtxt_glyph_get_bitmap(int unicode, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) {
+	if (!C) {
+		return NULL;
+	}
+
 	struct glyph_key key;
 	key.unicode = unicode;
 	key.s = *style;
