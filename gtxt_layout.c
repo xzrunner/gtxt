@@ -853,7 +853,7 @@ gtxt_get_layout_size(float* width, float* height) {
 	*width = 0;
 	struct row* r = L.head;
 	while (r) {
-		*width = MAX(*width, r->width);
+		*width = MAX(*width, r->width + r->offset);
 		r = r->next;
 	}
 
