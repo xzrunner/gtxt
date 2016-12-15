@@ -284,6 +284,7 @@ _new_line() {
 	if (!L.style->overflow) {
 		float tot_h = L.prev_tot_h + L.curr_row->height;
 		if (tot_h > L.style->height) {
+			L.prev_tot_h -= h;
 			return false;
 		}
 	}
