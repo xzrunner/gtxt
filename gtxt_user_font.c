@@ -3,6 +3,8 @@
 #include "gtxt_util.h"
 
 #include <ds_hash.h>
+#include <dtex_facade.h>
+#include <dtex_cg.h>
 #include <logger.h>
 
 #include <stdbool.h>
@@ -39,7 +41,7 @@ float* (*LOAD_AND_QUERY)(void* ud, struct dtex_glyph* glyph);
 
 void 
 gtxt_uf_cb_init(float* (*load_and_query)(void* ud, struct dtex_glyph* glyph)) {
-//	LOAD_AND_QUERY = load_and_query;
+	LOAD_AND_QUERY = load_and_query;
 }
 
 void 
@@ -110,16 +112,14 @@ gtxt_uf_add_char(int font, const char* str, int w, int h, void* ud) {
 
 float* 
 gtxt_uf_query_and_load(int font, int unicode, struct dtex_glyph* glyph) {
-// 	assert(font < UF->fonts_count);
-// 	struct character* c = ds_hash_query(UF->fonts[font].hash, &unicode);
-// 	if (!c) {
-// 		return NULL;
-// 	} else {
-// 		struct dtex_cg* cg = dtexf_get_cg();
-// 		return dtex_cg_load_user(cg, glyph, LOAD_AND_QUERY, c->ud);
-// 	}
-
-	return NULL;
+	assert(font < UF->fonts_count);
+	struct character* c = ds_hash_query(UF->fonts[font].hash, &unicode);
+	if (!c) {
+		return NULL;
+	} else {
+		struct dtex_cg* cg = dtexf_get_cg();
+		return dtex_cg_load_user(cg, glyph, LOAD_AND_QUERY, c->ud);
+	}
 }
 
 void 
