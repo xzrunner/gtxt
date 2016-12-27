@@ -6,7 +6,6 @@ extern "C"
 #ifndef gametext_adapter_h
 #define gametext_adapter_h
 
-struct dtex_cg;
 struct gtxt_glyph_style;
 struct gtxt_draw_style;
 
