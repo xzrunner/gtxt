@@ -43,12 +43,15 @@ struct gtxt_label_style {
 };
 
 struct gtxt_draw_style;
+struct gtxt_glyph_style;
 
-void gtxt_label_draw(const char* str, const struct gtxt_label_style* style, void (*render)(int id, float* texcoords, float x, float y, float w, float h, struct gtxt_draw_style* ds, void* ud), void* ud);
-void gtxt_label_draw_richtext(const char* str, const struct gtxt_label_style* style, int time, void (*render)(int id, float* texcoords, float x, float y, float w, float h, struct gtxt_draw_style* ds, void* ud), void* ud);
+void gtxt_label_cb_init(void (*draw_glyph)(int unicode, float x, float y, float w, float h, const struct gtxt_glyph_style* gs, const struct gtxt_draw_style* ds, void* ud));
 
-void gtxt_label_reload(const char* str, const struct gtxt_label_style* style);
-void gtxt_label_reload_richtext(const char* str, const struct gtxt_label_style* style);
+void gtxt_label_draw(const char* str, const struct gtxt_label_style* style, void* ud);
+void gtxt_label_draw_richtext(const char* str, const struct gtxt_label_style* style, int time, void* ud);
+
+// void gtxt_label_reload(const char* str, const struct gtxt_label_style* style);
+// void gtxt_label_reload_richtext(const char* str, const struct gtxt_label_style* style);
 
 void* gtxt_label_point_query(const char* str, const struct gtxt_label_style* style, int x, int y, void* ud);
 
