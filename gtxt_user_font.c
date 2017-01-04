@@ -90,22 +90,22 @@ gtxt_uf_add_font(const char* name, int cap) {
 
 void 
 gtxt_uf_add_char(int font, const char* str, int w, int h, void* ud) {
-	if (UF->chars_count >= MAX_CHARS) {
-		LOGW("%s", "gtxt_uf_add_char char full.");
-		return;
-	}
-
-	assert(font < UF->fonts_count);
-
-	int len = gtxt_unicode_len(str[0]);
-	int unicode = gtxt_get_unicode(str, len);
-
-	struct character* c = &UF->chars[UF->chars_count++];
-	c->unicode = unicode;
-	c->w = w;
-	c->h = h;
-	c->ud = ud;
-	ds_hash_insert(UF->fonts[font].hash, &c->unicode, c, true);
+// 	if (UF->chars_count >= MAX_CHARS) {
+// 		LOGW("%s", "gtxt_uf_add_char char full.");
+// 		return;
+// 	}
+// 
+// 	assert(font < UF->fonts_count);
+// 
+// 	int len = gtxt_unicode_len(str[0]);
+// 	int unicode = gtxt_get_unicode(str, len);
+// 
+// 	struct character* c = &UF->chars[UF->chars_count++];
+// 	c->unicode = unicode;
+// 	c->w = w;
+// 	c->h = h;
+// 	c->ud = ud;
+// 	ds_hash_insert(UF->fonts[font].hash, &c->unicode, c, true);
 }
 
 float* 
@@ -124,16 +124,16 @@ gtxt_uf_query_and_load(int font, int unicode, struct dtex_glyph* glyph) {
 
 void 
 gtxt_uf_get_layout(int unicode, int font, struct gtxt_glyph_layout* layout) {
-	assert(font < UF->fonts_count);
-	struct character* c = ds_hash_query(UF->fonts[font].hash, &unicode);
-	if (!c) {
-		return;
-	}
-
-	layout->sizer.width = c->w;
-	layout->sizer.height = c->h;
-	layout->bearing_x = 0;
-	layout->bearing_y = 0;
-	layout->advance = c->w;
-	layout->metrics_height = c->h;
+// 	assert(font < UF->fonts_count);
+// 	struct character* c = ds_hash_query(UF->fonts[font].hash, &unicode);
+// 	if (!c) {
+// 		return;
+// 	}
+// 
+// 	layout->sizer.width = c->w;
+// 	layout->sizer.height = c->h;
+// 	layout->bearing_x = 0;
+// 	layout->bearing_y = 0;
+// 	layout->advance = c->w;
+// 	layout->metrics_height = c->h;
 }
