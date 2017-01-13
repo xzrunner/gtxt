@@ -138,13 +138,8 @@ _str_head_equal(const char* str, const char* substr) {
 static inline bool
 _parser_color(const char* token, union gtxt_color* col, const char** end_ptr) {
 	if (token[0] == '#') {
-		int c = strtoul(&token[1], end_ptr, 16);
-		if (c >= 0) {
-			col->integer = c;
-			return true;
-		} else {
-			return false;
-		}
+		col->integer = strtoul(&token[1], end_ptr, 16);
+		return true;
 	} else {
 		for (int i = 0; i < COLOR_SIZE; ++i) {
 			if (_str_head_equal(token, COLOR[i].name)) {
