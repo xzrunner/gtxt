@@ -21,6 +21,10 @@ LOCAL_C_INCLUDES  := \
 LOCAL_SRC_FILES := \
 	$(subst $(LOCAL_PATH)/,,$(shell find $(LOCAL_PATH) -name "*.c" -print)) \
 
-include $(BUILD_STATIC_LIBRARY)	
+LOCAL_STATIC_LIBRARIES := \
+	freetype \
+	ds \
+
+include $(BUILD_STATIC_LIBRARY)
 
 LOCAL_PATH := $(INNER_SAVED_LOCAL_PATH)
