@@ -1,6 +1,5 @@
 #include "gtxt_glyph.h"
 #include "gtxt_freetype.h"
-#include "gtxt_user_font.h"
 
 #include <ds_hash.h>
 #include <ds_freelist.h>
@@ -47,7 +46,8 @@ struct glyph_cache {
 
 static struct glyph_cache* C;
 
-static uint32_t* (*CHAR_GEN)(const char* str, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) = NULL;
+static uint32_t* (*CHAR_GEN)(const char* str, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout);
+static void      (*GET_UF_LAYOUT)(int unicode, int font, struct gtxt_glyph_layout* layout);
 
 static inline unsigned int 
 _hash_func(int hash_sz, void* key) {
@@ -93,8 +93,10 @@ _equal_func(void* key0, void* key1) {
 
 void 
 gtxt_glyph_create(int cap_bitmap, int cap_layout,
-				  uint32_t* (*char_gen)(const char* str, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout)) {
+				  uint32_t* (*char_gen)(const char* str, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout),
+				  void (*get_uf_layout)(int unicode, int font, struct gtxt_glyph_layout* layout)) {
 	CHAR_GEN = char_gen;
+	GET_UF_LAYOUT = get_uf_layout;
 
 	size_t bitmap_sz = sizeof(struct glyph_bitmap) * cap_bitmap;
 	size_t layout_sz = sizeof(struct glyph) * cap_layout;
@@ -178,7 +180,7 @@ gtxt_glyph_get_layout(int unicode, const struct gtxt_glyph_style* style) {
 		if (style->font < ft_count) {
 			gtxt_ft_get_layout(unicode, style, &g->layout);
 		} else {
-			gtxt_uf_get_layout(unicode, ft_count - style->font, &g->layout);
+			GET_UF_LAYOUT(unicode, ft_count - style->font, &g->layout);
 		}
 
 		g->key = key;
