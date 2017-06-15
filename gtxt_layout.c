@@ -749,13 +749,13 @@ _get_start_y() {
 	if (L.head->next) {
 		switch (L.style->align_v) {
 		case VA_TOP: case VA_AUTO:
-			y = L.style->height * 0.5f - L.head->ymax;
+			y = L.style->height * 0.5f - L.head->height * L.style->space_v;
 			break;
 		case VA_BOTTOM:
-			y = -L.style->height * 0.5f + tot_h - L.head->ymax;
+			y = -L.style->height * 0.5f + tot_h - L.head->height * L.style->space_v;
 			break;
 		case VA_CENTER:
-			y = tot_h * 0.5f - L.head->ymax;
+			y = tot_h * 0.5f - L.head->height * L.style->space_v;
 			break;
 		case VA_TILE:
 			y = L.style->height * 0.5f;
