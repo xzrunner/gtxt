@@ -262,6 +262,7 @@ _draw_with_edge(struct font* font, FT_UInt gindex, union gtxt_color font_color,
 	FT_Done_Glyph(glyph);
 
 	if (IN_SPANS->sz == 0) {
+		layout->sizer.width = layout->sizer.height = 0;
 		return false;
 	}
 
