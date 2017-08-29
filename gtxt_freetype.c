@@ -289,7 +289,7 @@ _draw_with_edge(struct font* font, FT_UInt gindex, union gtxt_color font_color,
 	int in_img_h = ft_face->glyph->metrics.height >> 6;
 	int in_img_w = ft_face->glyph->metrics.width >> 6;
 	layout->bearing_x -= (img_w - in_img_w) * 0.5f;
-	layout->bearing_y -= (img_h - in_img_h) * 0.5f;
+	layout->bearing_y += (img_h - in_img_h) * 0.5f;
 	layout->advance += img_w - in_img_w;
 	layout->metrics_height += img_h - in_img_h;
 
