@@ -186,7 +186,7 @@ gtxt_label_draw_richtext(const char* str, const struct gtxt_label_style* style, 
 	gtxt_richtext_parser(str, style, _layout_richtext_glyph_cb, &count);	// layout
 
 	// get layout
-	struct layout_pos pos[count];
+	ARRAY(struct layout_pos, pos, count);
 	struct draw_richtext_params params;
 
 	params.result = pos;
@@ -286,7 +286,7 @@ gtxt_label_point_query(const char* str, const struct gtxt_label_style* style, in
 	gtxt_richtext_parser(str, style, _layout_richtext_glyph_cb, &count);	// layout
 
 	// get layout
-	struct layout_pos pos[count];
+	ARRAY(struct layout_pos, pos, count);
 	struct query_richtext_params params;
 
 	params.result = pos;

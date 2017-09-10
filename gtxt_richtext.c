@@ -1,5 +1,6 @@
 #include "gtxt_richtext.h"
 #include "gtxt_label.h"
+#include "gtxt_util.h"
 
 #include <string.h>
 #include <assert.h>
@@ -471,7 +472,7 @@ _read_token(const char* str, int ptr, int len, struct richtext_state* rs) {
 		++curr;
 	}
 	if (str[curr] == '>') {
-		char token[curr - ptr];
+		ARRAY(char, token, curr - ptr);
 		strncpy(token, &str[ptr + 1], curr - ptr - 1);
 		token[curr - ptr - 1] = 0;
 		bool succ = _parser_token(token, rs);
