@@ -248,7 +248,7 @@ gtxt_glyph_get_bitmap(int unicode, const struct gtxt_glyph_style* style, struct 
 		ret_buf = NULL;
 	} else {
 		*layout = g->layout;
-		size_t sz = g->layout.sizer.width * g->layout.sizer.height * sizeof(uint32_t);
+		size_t sz = (size_t)(g->layout.sizer.width * g->layout.sizer.height * sizeof(uint32_t));
 		if (sz > g->bitmap->sz) {
 			free(g->bitmap->buf);
 			g->bitmap->buf = malloc(sz);

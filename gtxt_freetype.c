@@ -127,11 +127,11 @@ _draw_default(struct font* font, FT_UInt gindex, union gtxt_color color, struct 
 	}
 
 	FT_Glyph_Metrics gm = ft_face->glyph->metrics;
-	layout->bearing_x = gm.horiBearingX >> 6;
-	layout->bearing_y = gm.horiBearingY >> 6;
-	layout->sizer.height = gm.height >> 6;
-	layout->sizer.width = gm.width >> 6;
-	layout->advance = gm.horiAdvance >> 6;
+	layout->bearing_x = (float)(gm.horiBearingX >> 6);
+	layout->bearing_y = (float)(gm.horiBearingY >> 6);
+	layout->sizer.height = (float)(gm.height >> 6);
+	layout->sizer.width = (float)(gm.width >> 6);
+	layout->advance = (float)(gm.horiAdvance >> 6);
 
 	if (cb) {
 		FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_NORMAL, 0, 1);
@@ -139,8 +139,8 @@ _draw_default(struct font* font, FT_UInt gindex, union gtxt_color color, struct 
 		FT_Bitmap* bitmap = &bitmap_glyph->bitmap;
 
 //		assert(bitmap->rows == layout->sizer.height && bitmap->width == layout->sizer.width);
-		layout->sizer.height = bitmap->rows;
-		layout->sizer.width = bitmap->width;
+		layout->sizer.height = (float)bitmap->rows;
+		layout->sizer.width = (float)bitmap->width;
 
 		cb(bitmap, color);
 	}
@@ -244,9 +244,9 @@ _draw_with_edge(struct font* font, FT_UInt gindex, union gtxt_color font_color,
 		return false;
 	}
 
-	layout->bearing_x = ft_face->glyph->metrics.horiBearingX >> 6;
-	layout->bearing_y = ft_face->glyph->metrics.horiBearingY >> 6;
-	layout->advance = ft_face->glyph->metrics.horiAdvance >> 6;
+	layout->bearing_x = (float)(ft_face->glyph->metrics.horiBearingX >> 6);
+	layout->bearing_y = (float)(ft_face->glyph->metrics.horiBearingY >> 6);
+	layout->advance = (float)(ft_face->glyph->metrics.horiAdvance >> 6);
 
 	FT_Glyph_StrokeBorder(&glyph, stroker, 0, 1);
 	// Again, this needs to be an outline to work.
@@ -267,23 +267,23 @@ _draw_with_edge(struct font* font, FT_UInt gindex, union gtxt_color font_color,
 	}
 
 	struct rect rect;
-	rect.xmin = rect.xmax = IN_SPANS->items[0].x;
-	rect.ymin = rect.ymax = IN_SPANS->items[0].y;
+	rect.xmin = rect.xmax = (float)IN_SPANS->items[0].x;
+	rect.ymin = rect.ymax = (float)IN_SPANS->items[0].y;
 	for (int i = 0; i < IN_SPANS->sz; ++i) {
 		struct span* s = &IN_SPANS->items[i];
-		_rect_merge_point(&rect, s->x, s->y);
-		_rect_merge_point(&rect, s->x + s->width - 1, s->y);
+		_rect_merge_point(&rect, (float)s->x, (float)s->y);
+		_rect_merge_point(&rect, (float)(s->x + s->width - 1), (float)s->y);
 	}
 	for (int i = 0; i < OUT_SPANS->sz; ++i) {
 		struct span* s = &OUT_SPANS->items[i];
-		_rect_merge_point(&rect, s->x, s->y);
-		_rect_merge_point(&rect, s->x + s->width - 1, s->y);
+		_rect_merge_point(&rect, (float)s->x, (float)s->y);
+		_rect_merge_point(&rect, (float)(s->x + s->width - 1), (float)s->y);
 	}
-
-	int img_w = _rect_width(&rect),
-		img_h = _rect_height(&rect);
-	layout->sizer.width = img_w;
-	layout->sizer.height = img_h;
+	
+	int img_w = (int)_rect_width(&rect),
+		img_h = (int)_rect_height(&rect);
+	layout->sizer.width = (float)img_w;
+	layout->sizer.height = (float)img_h;
 
 	// fix for edge
 	int in_img_h = ft_face->glyph->metrics.height >> 6;
@@ -294,7 +294,7 @@ _draw_with_edge(struct font* font, FT_UInt gindex, union gtxt_color font_color,
 	layout->metrics_height += img_h - in_img_h;
 
 	if (cb) {
-		cb(rect.xmin, rect.ymin, img_w, img_h, font_color, edge_color);
+		cb((int)rect.xmin, (int)rect.ymin, img_w, img_h, font_color, edge_color);
 	}
 
 	return true;
@@ -314,7 +314,7 @@ _load_glyph_to_bitmap(int unicode, const struct gtxt_glyph_style* style, struct 
 
 	FT_Set_Pixel_Sizes(ft_face, style->font_size, style->font_size);
 	FT_Size_Metrics s = ft_face->size->metrics;
-	layout->metrics_height = s.height >> 6;
+	layout->metrics_height = (float)(s.height >> 6);
 
 	FT_UInt gindex = FT_Get_Char_Index(ft_face, unicode);
 	if (gindex == 0) {
@@ -336,7 +336,7 @@ _load_glyph_to_bitmap(int unicode, const struct gtxt_glyph_style* style, struct 
 
 static inline void
 _prepare_buf(int sz) {
-	if (BUF_SZ < sz) {
+	if (BUF_SZ < (size_t)sz) {
 		free(BUF);
 		BUF = malloc(sz);
 		if (!BUF) {
@@ -353,8 +353,8 @@ _copy_glyph_default(FT_Bitmap* bitmap, union gtxt_color color) {
 	_prepare_buf(sz);
 
 	int ptr = 0;
-	for (int i = 0; i < bitmap->rows; ++i) {
-		for (int j = 0; j < bitmap->width; ++j) {
+	for (size_t i = 0; i < bitmap->rows; ++i) {
+		for (size_t j = 0; j < bitmap->width; ++j) {
 			int dst_ptr = (bitmap->rows - 1 - i) * bitmap->width + j;
 			union gtxt_color* col = &BUF[dst_ptr];
 			uint8_t a = bitmap->buffer[ptr];

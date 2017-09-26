@@ -84,7 +84,7 @@ gtxt_layout_release() {
 
 static inline void
 _prepare_glyph_freelist(int cap) {
-	if (cap <= L.glyph_cap || cap <= 0) {
+	if ((size_t)cap <= L.glyph_cap || cap <= 0) {
 		return;
 	}
 
@@ -116,7 +116,7 @@ _prepare_glyph_freelist(int cap) {
 
 static inline void
 _prepare_row_freelist(int cap) {
-	if (cap <= L.row_cap || cap <= 0) {
+	if ((size_t)cap <= L.row_cap || cap <= 0) {
 		return;
 	}
 
@@ -688,10 +688,10 @@ gtxt_layout_ext_sym(int width, int height) {
 	}
 
 	if (height > L.curr_row->height) {
-		L.curr_row->height = height;
+		L.curr_row->height = (float)height;
 	}
 	if (height > L.curr_row->ymax) {
-		L.curr_row->ymax = height;
+		L.curr_row->ymax = (float)height;
 	}
 	L.curr_row->width += width;
 
@@ -699,10 +699,10 @@ gtxt_layout_ext_sym(int width, int height) {
 	assert(g);
 	g->unicode = -1;
 	g->x = 0;
-	g->y = height;
-	g->w = width;
-	g->h = height;
-	g->out_width = width;
+	g->y = (float)height;
+	g->w = (float)width;
+	g->h = (float)height;
+	g->out_width = (float)width;
 	_add_glyph(g);
 
 	L.connected_glyph_type = CGT_NULL;

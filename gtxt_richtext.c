@@ -139,7 +139,7 @@ _str_head_equal(const char* str, const char* substr) {
 static inline bool
 _parser_color(const char* token, union gtxt_color* col, const char** end_ptr) {
 	if (token[0] == '#') {
-		col->integer = strtoul(&token[1], end_ptr, 16);
+		col->integer = strtoul(&token[1], (char**)end_ptr, 16);
 		return true;
 	} else {
 		for (int i = 0; i < COLOR_SIZE; ++i) {
@@ -207,9 +207,9 @@ _parser_font(const char* token) {
 
 static inline void 
 _parser_edge(const char* token, struct edge_style* es) {
-	const char* end;
+	char* end;
 	if (_str_head_equal(token, "size=")) {
-		float sz = strtod(&token[strlen("size=")], &end);
+		float sz = (float)strtod(&token[strlen("size=")], &end);
 		if (sz >= 0) {
 			es->size = sz;
 		}
@@ -224,12 +224,12 @@ _parser_edge(const char* token, struct edge_style* es) {
 
 static inline void
 _parser_dynamic_value(const char* token, struct dynamic_value* val) {
-	const char* end = token;
-	val->start = strtod(gtxt_richtext_skip_delimiter(end) + strlen("start="), &end);
-	val->max = strtod(gtxt_richtext_skip_delimiter(end)+ strlen("max="), &end);
-	val->min = strtod(gtxt_richtext_skip_delimiter(end) + strlen("min="), &end);
-	val->glyph_dt = strtod(gtxt_richtext_skip_delimiter(end) + strlen("glyph_dt="), &end);
-	val->time_dt = strtod(gtxt_richtext_skip_delimiter(end) + strlen("time_dt="), &end);
+	char* end = (char*)token;
+	val->start = (float)strtod(gtxt_richtext_skip_delimiter(end) + strlen("start="), &end);
+	val->max = (float)strtod(gtxt_richtext_skip_delimiter(end)+ strlen("max="), &end);
+	val->min = (float)strtod(gtxt_richtext_skip_delimiter(end) + strlen("min="), &end);
+	val->glyph_dt = (float)strtod(gtxt_richtext_skip_delimiter(end) + strlen("glyph_dt="), &end);
+	val->time_dt = (float)strtod(gtxt_richtext_skip_delimiter(end) + strlen("time_dt="), &end);
 }
 
 static inline void
