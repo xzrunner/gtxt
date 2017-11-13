@@ -33,7 +33,7 @@ struct span {
 	int coverage;
 };
 
-#define MAX_SPAN 1024
+#define MAX_SPAN 2048 
 
 struct spans {
 	struct span items[MAX_SPAN];
