@@ -16,7 +16,7 @@
 
 struct edge_style {
 	float size;
-	union gtxt_color color;
+	struct gtxt_glyph_color color;
 };
 
 struct dynamic_value {
@@ -41,7 +41,7 @@ struct richtext_state {
 	int size[MAX_LAYER_COUNT];
 	int size_layer;
 
-	union gtxt_color color[MAX_LAYER_COUNT];
+	struct gtxt_glyph_color color[MAX_LAYER_COUNT];
 	int color_layer;
 
 	struct edge_style edge[MAX_LAYER_COUNT];
@@ -137,14 +137,14 @@ _str_head_equal(const char* str, const char* substr) {
 }
 
 static inline bool
-_parser_color(const char* token, union gtxt_color* col, const char** end_ptr) {
+_parser_color(const char* token, struct gtxt_glyph_color* col, const char** end_ptr) {
 	if (token[0] == '#') {
-		col->integer = strtoul(&token[1], (char**)end_ptr, 16);
+		col->color.integer = strtoul(&token[1], (char**)end_ptr, 16);
 		return true;
 	} else {
 		for (int i = 0; i < COLOR_SIZE; ++i) {
 			if (_str_head_equal(token, COLOR[i].name)) {
-				*col = COLOR[i].color;
+				col->color = COLOR[i].color;
 				if (end_ptr) {
 					*end_ptr = &token[strlen(COLOR[i].name)];
 				}
@@ -214,7 +214,8 @@ _parser_edge(const char* token, struct edge_style* es) {
 			es->size = sz;
 		}
 	} else if (_str_head_equal(token, "color=")) {
-		es->color.integer = 0;
+		es->color.is_complex = false;
+		es->color.color.integer = 0;
 		_parser_color(&token[strlen("color=")], &es->color, &end);
 	}
 	if (*end) {
@@ -284,9 +285,9 @@ _parser_decoration(const char* token, struct gtxt_decoration* d) {
 	++ptr;
 	const char* end = ptr;
 	if (_str_head_equal(ptr, "color=")) {
-		union gtxt_color col;
+		struct gtxt_glyph_color col;
 		if (_parser_color(&ptr[strlen("color=")], &col, &end)) {
-			d->color = col.integer;
+			d->color = col.color.integer;
 		} else {
 			d->color = 0xffffffff;
 		}
@@ -344,8 +345,9 @@ _parser_token(const char* token, struct richtext_state* rs) {
 	}
 	// color
 	else if (_str_head_equal(token, "color")) {
-		union gtxt_color col;
-		col.integer = 0xffffffff;
+		struct gtxt_glyph_color col;
+		col.is_complex = false;
+		col.color.integer = 0xffffffff;
 		bool succ = _parser_color(_skip_delimiter_and_equal(&token[strlen("color")]), &col, NULL);
 		if (succ) {
 			STATE_PUSH(rs->color, rs->color_layer, col, rs->s.gs.font_color);
@@ -361,7 +363,8 @@ _parser_token(const char* token, struct richtext_state* rs) {
 	else if (_str_head_equal(token, "edge")) {
 		struct edge_style es;
 		es.size = 1;
-		es.color.integer = 0x000000ff;
+		es.color.is_complex = false;
+		es.color.color.integer = 0x000000ff;
 		if (strlen(token) > strlen("edge")) {
 			_parser_edge(_skip_delimiter_and_equal(&token[strlen("edge")]), &es);
 		}
@@ -380,7 +383,8 @@ _parser_token(const char* token, struct richtext_state* rs) {
 		if (rs->edge_layer == 0) {
 			rs->s.gs.edge = false;
 			rs->s.gs.edge_size = 0;
-			rs->s.gs.edge_color.integer = 0;
+			rs->s.gs.edge_color.is_complex = false;
+			rs->s.gs.edge_color.color.integer = 0;
 		} else if (rs->edge_layer <= MAX_LAYER_COUNT) {
 			rs->s.gs.edge = true;
 			rs->s.gs.edge_size = rs->edge[rs->edge_layer-1].size;

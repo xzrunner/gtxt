@@ -53,20 +53,26 @@ static inline unsigned int
 _hash_func(int hash_sz, void* key) {
 	struct glyph_key* hk = (struct glyph_key*)key;
 	uint32_t hash;
+	struct gtxt_glyph_color* fcol = &hk->s.font_color;
+	uint32_t font_color = fcol->is_complex ?
+		fcol->begin_col.integer ^ fcol->mid_col.integer ^ fcol->end_col.integer : fcol->color.integer;
 	if (hk->s.edge) {
+		struct gtxt_glyph_color* ecol = &hk->s.edge_color;
+		uint32_t edge_color = ecol->is_complex ?
+			ecol->begin_col.integer ^ ecol->mid_col.integer ^ ecol->end_col.integer : ecol->color.integer;
 		hash = 
 			hk->unicode ^ 
 			(hk->s.font * 97) ^ 
 			(hk->s.font_size * 101) ^
-			hk->s.font_color.integer ^ 
+			font_color ^
 			(int)(hk->s.edge_size * 10000) ^
-			hk->s.edge_color.integer;
+			edge_color;
 	} else {
 		hash = 
 			hk->unicode ^ 
 			(hk->s.font * 97) ^ 
 			(hk->s.font_size * 101) ^
-			hk->s.font_color.integer;
+			font_color;
 	}
 	return hash % hash_sz;
 }
@@ -75,14 +81,14 @@ static inline bool
 _equal_func(void* key0, void* key1) {
 	struct glyph_key* hk0 = (struct glyph_key*)key0;
 	struct glyph_key* hk1 = (struct glyph_key*)key1;
-	if (hk0->unicode == hk1->unicode && 
-		hk0->s.font == hk1->s.font && 
-		hk0->s.font_size	== hk1->s.font_size && 
-		hk0->s.font_color.integer == hk1->s.font_color.integer && 
+	if (hk0->unicode == hk1->unicode &&
+		hk0->s.font == hk1->s.font &&
+		hk0->s.font_size == hk1->s.font_size &&
+		memcmp(&hk0->s.font_color, &hk1->s.font_color, sizeof(hk0->s.font_color)) == 0 &&
 		hk0->s.edge == hk1->s.edge) {
 		if (hk0->s.edge) {
 			return hk0->s.edge_size	== hk1->s.edge_size
-				&& hk0->s.edge_color.integer == hk1->s.edge_color.integer;
+			    && memcmp(&hk0->s.edge_color, &hk1->s.edge_color, sizeof(hk0->s.edge_color)) == 0;
 		} else {
 			return true;
 		}

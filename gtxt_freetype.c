@@ -113,8 +113,8 @@ gtxt_ft_get_font_cout() {
 }
 
 static bool
-_draw_default(struct font* font, FT_UInt gindex, union gtxt_color color, struct gtxt_glyph_layout* layout, 
-			  void (*cb)(FT_Bitmap* bitmap, union gtxt_color color)) {
+_draw_default(struct font* font, FT_UInt gindex, struct gtxt_glyph_color color, struct gtxt_glyph_layout* layout, 
+			  void (*cb)(FT_Bitmap* bitmap, struct gtxt_glyph_color color)) {
 	FT_Face ft_face = font->face;
 
 	if (FT_Load_Glyph(ft_face, gindex, FT_LOAD_DEFAULT)) {
@@ -209,9 +209,9 @@ _rect_height(struct rect* r) {
 }
 
 static bool
-_draw_with_edge(struct font* font, FT_UInt gindex, union gtxt_color font_color, 
-				float edge_size, union gtxt_color edge_color, struct gtxt_glyph_layout* layout, 
-				void (*cb)(int img_x, int img_y, int img_w, int img_h, union gtxt_color font_color, union gtxt_color edge_color)) {
+_draw_with_edge(struct font* font, FT_UInt gindex, struct gtxt_glyph_color font_color, 
+				float edge_size, struct gtxt_glyph_color edge_color, struct gtxt_glyph_layout* layout, 
+				void (*cb)(int img_x, int img_y, int img_w, int img_h, struct gtxt_glyph_color font_color, struct gtxt_glyph_color edge_color)) {
 	FT_Face ft_face = font->face;
 	FT_Library ft_library = font->library;
 
@@ -302,8 +302,8 @@ _draw_with_edge(struct font* font, FT_UInt gindex, union gtxt_color font_color,
 
 static bool
 _load_glyph_to_bitmap(int unicode, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout,
-					  void (*default_cb)(FT_Bitmap* bitmap, union gtxt_color color),
-					  void (*edge_cb)(int img_x, int img_y, int img_w, int img_h, union gtxt_color font_color, union gtxt_color edge_color)) {
+					  void (*default_cb)(FT_Bitmap* bitmap, struct gtxt_glyph_color color),
+					  void (*edge_cb)(int img_x, int img_y, int img_w, int img_h, struct gtxt_glyph_color font_color, struct gtxt_glyph_color edge_color)) {
 	if (style->font < 0 || style->font >= FT->count) {
 		return false;
 	}
@@ -348,29 +348,55 @@ _prepare_buf(int sz) {
 }
 
 static inline void
-_copy_glyph_default(FT_Bitmap* bitmap, union gtxt_color color) {
-	int sz = sizeof(union gtxt_color) * bitmap->rows * bitmap->width;
+_copy_glyph_default(FT_Bitmap* bitmap, struct gtxt_glyph_color color) {
+	int sz = sizeof(struct gtxt_glyph_color) * bitmap->rows * bitmap->width;
 	_prepare_buf(sz);
 
-	int ptr = 0;
-	for (size_t i = 0; i < bitmap->rows; ++i) {
-		for (size_t j = 0; j < bitmap->width; ++j) {
-			int dst_ptr = (bitmap->rows - 1 - i) * bitmap->width + j;
-			union gtxt_color* col = &BUF[dst_ptr];
-			uint8_t a = bitmap->buffer[ptr];
-			col->r = (color.r * a) >> 8;
-			col->g = (color.g * a) >> 8;
-			col->b = (color.b * a) >> 8;
-			col->a = a;
-			++ptr;
+	if (color.is_complex) {
+		int ptr = 0;
+		union gtxt_color *bcol = &color.begin_col,
+			             *mcol = &color.mid_col,
+			             *ecol = &color.end_col;
+		for (size_t i = 0; i < bitmap->rows; ++i) {
+			for (size_t j = 0; j < bitmap->width; ++j) {
+				int dst_ptr = (bitmap->rows - 1 - i) * bitmap->width + j;
+				union gtxt_color* col = &BUF[dst_ptr];
+				uint8_t a = bitmap->buffer[ptr];
+				float p = (float)i / (bitmap->rows - 1);
+				uint8_t r = (uint8_t)(bcol->r + (ecol->r - bcol->r) * p);
+				uint8_t g = (uint8_t)(bcol->g + (ecol->g - bcol->g) * p);
+				uint8_t b = (uint8_t)(bcol->b + (ecol->b - bcol->b) * p);
+				col->r = (r * a) >> 8;
+				col->g = (g * a) >> 8;
+				col->b = (b * a) >> 8;
+				col->a = a;
+				++ptr;
+			}
+		}
+	} else {
+		int ptr = 0;
+		uint8_t r = color.color.r,
+			    g = color.color.g,
+			    b = color.color.b;
+		for (size_t i = 0; i < bitmap->rows; ++i) {
+			for (size_t j = 0; j < bitmap->width; ++j) {
+				int dst_ptr = (bitmap->rows - 1 - i) * bitmap->width + j;
+				union gtxt_color* col = &BUF[dst_ptr];
+				uint8_t a = bitmap->buffer[ptr];
+				col->r = (r * a) >> 8;
+				col->g = (g * a) >> 8;
+				col->b = (b * a) >> 8;
+				col->a = a;
+				++ptr;
+			}
 		}
 	}
 }
 
 static inline void
 _copy_glyph_with_edge(int img_x, int img_y, int img_w, int img_h,
-                      union gtxt_color font_color, union gtxt_color edge_color) {
-	int sz = sizeof(union gtxt_color) * img_w * img_h;
+                      struct gtxt_glyph_color font_color, struct gtxt_glyph_color edge_color) {
+	int sz = sizeof(struct gtxt_glyph_color) * img_w * img_h;
 	_prepare_buf(sz);
 
 	// Loop over the outline spans and just draw them into the
@@ -380,7 +406,7 @@ _copy_glyph_with_edge(int img_x, int img_y, int img_w, int img_h,
 		for (int w = 0; w < out_span->width; ++w) {
 			int index = (int)((out_span->y - img_y) * img_w + out_span->x - img_x + w);
 			union gtxt_color* p = &BUF[index];
-			*p = edge_color;
+			*p = edge_color.color;
 			p->a = out_span->coverage;
 			p->r = p->r * p->a >> 8;
 			p->g = p->g * p->a >> 8;
@@ -396,7 +422,7 @@ _copy_glyph_with_edge(int img_x, int img_y, int img_w, int img_h,
 		for (int w = 0; w < s->width; ++w) {
 			int index = (s->y - img_y) * img_w + s->x - img_x + w;
 			union gtxt_color* dst = &BUF[index];
-			union gtxt_color src = font_color;
+			union gtxt_color src = font_color.color;
 			src.a = s->coverage;
 			dst->r = (int)(dst->r + ((src.r - dst->r) * src.a) / 255.0f);
 			dst->g = (int)(dst->g + ((src.g - dst->g) * src.a) / 255.0f);

@@ -22,14 +22,28 @@ struct gtxt_glyph_layout {
 	float metrics_height;
 };
 
+struct gtxt_glyph_color {
+	bool is_complex;
+
+	union {
+		union gtxt_color color;
+
+		struct {
+			union gtxt_color begin_col, mid_col, end_col;
+			float mid_pos;
+			float angle;
+		};
+	};
+};
+
 struct gtxt_glyph_style {
 	int font;
 	int font_size;
-	union gtxt_color font_color;
+	struct gtxt_glyph_color font_color;
 
 	bool edge;
 	float edge_size;
-	union gtxt_color edge_color;
+	struct gtxt_glyph_color edge_color;
 };
 
 void gtxt_glyph_create(int cap_bitmap, int cap_layout, 
