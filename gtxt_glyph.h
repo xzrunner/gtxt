@@ -23,17 +23,24 @@ struct gtxt_glyph_layout {
 };
 
 struct gtxt_glyph_color {
-	bool is_complex;
-
 	union {
-		union gtxt_color color;
+		struct {
+			union gtxt_color color;
+		} ONE;
+
+		struct {
+			union gtxt_color begin_col, end_col;
+			float angle;
+		} TWO;
 
 		struct {
 			union gtxt_color begin_col, mid_col, end_col;
 			float mid_pos;
 			float angle;
-		};
-	};
+		} THREE;
+	} mode;
+
+	int mode_type;
 };
 
 struct gtxt_glyph_style {

@@ -49,30 +49,45 @@ static struct glyph_cache* C;
 static uint32_t* (*CHAR_GEN)(const char* str, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout);
 static void      (*GET_UF_LAYOUT)(int unicode, int font, struct gtxt_glyph_layout* layout);
 
+static inline uint32_t
+_hash_color(struct gtxt_glyph_color* col) {
+	uint32_t icol = 0;
+	switch (col->mode_type)
+	{
+	case 0:
+		icol = col->mode.ONE.color.integer;
+		break;
+	case 1:
+		icol = col->mode.TWO.begin_col.integer ^ col->mode.TWO.end_col.integer;
+		break;
+	case 2:
+		icol = col->mode.THREE.begin_col.integer ^ col->mode.THREE.mid_col.integer ^ col->mode.THREE.end_col.integer;
+		break;
+	default:
+		assert(0);
+	}
+	return icol;
+}
+
 static inline unsigned int 
 _hash_func(int hash_sz, void* key) {
 	struct glyph_key* hk = (struct glyph_key*)key;
 	uint32_t hash;
-	struct gtxt_glyph_color* fcol = &hk->s.font_color;
-	uint32_t font_color = fcol->is_complex ?
-		fcol->begin_col.integer ^ fcol->mid_col.integer ^ fcol->end_col.integer : fcol->color.integer;
 	if (hk->s.edge) {
 		struct gtxt_glyph_color* ecol = &hk->s.edge_color;
-		uint32_t edge_color = ecol->is_complex ?
-			ecol->begin_col.integer ^ ecol->mid_col.integer ^ ecol->end_col.integer : ecol->color.integer;
 		hash = 
 			hk->unicode ^ 
 			(hk->s.font * 97) ^ 
 			(hk->s.font_size * 101) ^
-			font_color ^
+			_hash_color(&hk->s.font_color) ^
 			(int)(hk->s.edge_size * 10000) ^
-			edge_color;
+			_hash_color(&hk->s.edge_color);
 	} else {
 		hash = 
 			hk->unicode ^ 
 			(hk->s.font * 97) ^ 
 			(hk->s.font_size * 101) ^
-			font_color;
+			_hash_color(&hk->s.font_color);
 	}
 	return hash % hash_sz;
 }
