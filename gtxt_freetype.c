@@ -11,6 +11,7 @@
 #include FT_STROKER_H
 
 #include <assert.h>
+#include <math.h>
 
 struct font {
 	FT_Library library;
@@ -348,8 +349,9 @@ _prepare_buf(int sz) {
 }
 
 static inline union gtxt_color
-_lerp_color2(union gtxt_color begin, union gtxt_color end, float p) {
+_lerp_color2(union gtxt_color begin, union gtxt_color end, float bp, float ep, float p) {
 	union gtxt_color ret;
+	p = (p - bp) / (ep - bp);
 	ret.r = (uint8_t)(begin.r + (end.r - begin.r) * p);
 	ret.g = (uint8_t)(begin.g + (end.g - begin.g) * p);
 	ret.b = (uint8_t)(begin.b + (end.b - begin.b) * p);
@@ -367,19 +369,36 @@ _lerp_color(const struct gtxt_glyph_color* col, int w, int h, int x, int y) {
 		break;
 	case 1:
 		{
-			float p = (float)y / (h - 1);
-			ret = _lerp_color2(col->mode.TWO.begin_col, col->mode.TWO.end_col, p);
+			float rot_y = y + (x - w * 0.5f) * tanf(col->mode.TWO.angle);
+			rot_y = MIN(h - 1, MAX(rot_y, 0));
+			float p = rot_y / (h - 1);
+			if (p <= col->mode.TWO.begin_pos) {
+				ret = col->mode.TWO.begin_col;
+			} else if (p >= col->mode.TWO.end_pos) {
+				ret = col->mode.TWO.end_col;
+			} else {
+				ret = _lerp_color2(col->mode.TWO.begin_col, col->mode.TWO.end_col, 
+					col->mode.TWO.begin_pos, col->mode.TWO.end_pos, p);
+			}
 		}
 		break;
 	case 2:
 		{
-			float p = (float)y / (h - 1);
-			if (p < col->mode.THREE.mid_pos) {
-				p = p / col->mode.THREE.mid_pos;
-				ret = _lerp_color2(col->mode.THREE.begin_col, col->mode.THREE.mid_col, p);
+			float rot_y = y + (x - w * 0.5f) * tanf(col->mode.THREE.angle);
+			rot_y = MIN(h - 1, MAX(rot_y, 0));
+			float p = rot_y / (h - 1);
+			if (p <= col->mode.THREE.begin_pos) {
+				ret = col->mode.THREE.begin_col;
+			} else if (p >= col->mode.THREE.end_pos) {
+				ret = col->mode.THREE.end_col;
 			} else {
-				p = (p - col->mode.THREE.mid_pos) / (1 - col->mode.THREE.mid_pos);
-				ret = _lerp_color2(col->mode.THREE.mid_col, col->mode.THREE.end_col, p);
+				if (p < col->mode.THREE.mid_pos) {
+					ret = _lerp_color2(col->mode.THREE.begin_col, col->mode.THREE.mid_col, 
+						col->mode.THREE.begin_pos, col->mode.THREE.mid_pos, p);
+				} else {
+					ret = _lerp_color2(col->mode.THREE.mid_col, col->mode.THREE.end_col, 
+						col->mode.THREE.mid_pos, col->mode.THREE.end_pos, p);
+				}
 			}
 		}
 		break;
@@ -457,7 +476,7 @@ _copy_glyph_with_edge(int img_x, int img_y, int img_w, int img_h,
 }
 
 void 
-gtxt_ft_get_layout(int unicode, struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) {
+gtxt_ft_get_layout(int unicode, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) {
 	_load_glyph_to_bitmap(unicode, style, layout, NULL, NULL);
 }
 

@@ -30,12 +30,13 @@ struct gtxt_glyph_color {
 
 		struct {
 			union gtxt_color begin_col, end_col;
+			float begin_pos, end_pos;
 			float angle;
 		} TWO;
 
 		struct {
 			union gtxt_color begin_col, mid_col, end_col;
-			float mid_pos;
+			float begin_pos, mid_pos, end_pos;
 			float angle;
 		} THREE;
 	} mode;
