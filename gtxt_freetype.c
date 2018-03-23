@@ -467,10 +467,14 @@ _copy_glyph_with_edge(int img_x, int img_y, int img_w, int img_h,
 			int index = y * img_w + x;
 			union gtxt_color* dst = &BUF[index];
 			uint8_t a = s->coverage;
-			dst->r = (src.r * a) >> 8;
-			dst->g = (src.g * a) >> 8;
-			dst->b = (src.b * a) >> 8;
-			dst->a = a;
+			//dst->r = (src.r * a) >> 8;
+			//dst->g = (src.g * a) >> 8;
+			//dst->b = (src.b * a) >> 8;
+			//dst->a = a;
+			dst->r = (int)(dst->r + ((src.r - dst->r) * a) / 255.0f);
+			dst->g = (int)(dst->g + ((src.g - dst->g) * a) / 255.0f);
+			dst->b = (int)(dst->b + ((src.b - dst->b) * a) / 255.0f);
+			dst->a = MIN(255, dst->a + a);
 		}
 	}
 }
