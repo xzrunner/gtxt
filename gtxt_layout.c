@@ -20,6 +20,8 @@
 
 #define MAX_ROW_CONDENSE 0.10f
 
+static bool ENABLE_HORI_OFFSET = true;
+
 struct glyph {
 	int unicode;
 
@@ -859,4 +861,9 @@ gtxt_get_layout_size(float* width, float* height) {
 	}
 
 	*height = _get_tot_height();
+}
+
+void
+gtxt_layout_enable_hori_offset(bool enable) {
+	ENABLE_HORI_OFFSET = enable;
 }

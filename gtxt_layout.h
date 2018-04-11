@@ -38,6 +38,8 @@ void gtxt_layout_end();
 
 void gtxt_get_layout_size(float* width, float* height);
 
+void gtxt_layout_enable_hori_offset(bool enable);
+
 #endif // gametext_layout_h
 
 #ifdef __cplusplus
