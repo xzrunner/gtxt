@@ -27,6 +27,12 @@ enum gtxt_vert_align {
 	VA_TILE		= 4
 };
 
+enum gtxt_over_label {
+	OL_OVERFLOW = 0,
+	OL_CUT_OFF  = 1,
+	OL_CONDENSE = 2,
+};
+
 struct gtxt_label_style {
 	int width;
 	int height;
@@ -37,7 +43,7 @@ struct gtxt_label_style {
 	float space_h;
 	float space_v;
 
-	bool overflow;
+	int over_label;
 
 	struct gtxt_glyph_style gs;
 };

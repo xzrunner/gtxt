@@ -66,6 +66,7 @@ struct layout {
 	size_t row_cap;
 
 	float prev_tot_h;
+	float offset_vert;
 
 	struct glyph* prev_single_glyph;
 	enum CONNECTED_GLYPH_TYPE connected_glyph_type;
@@ -207,6 +208,7 @@ gtxt_layout_begin(const struct gtxt_label_style* style) {
 	L.style = style;
 
 	L.prev_tot_h = 0;
+	L.offset_vert = 0;
 
 	L.prev_single_glyph = NULL;
 	L.connected_glyph_type = CGT_NULL;
@@ -282,15 +284,24 @@ _new_line() {
 
 	float h = L.curr_row->height * L.style->space_v;
 	L.prev_tot_h += h;
+
 	// over label height
-	if (!L.style->overflow) {
-		float tot_h = L.prev_tot_h + L.curr_row->height;
-		if (tot_h > L.style->height) {
+	float tot_h = L.prev_tot_h + L.curr_row->height;
+	if (tot_h > L.style->height) {
+		switch (L.style->over_label)
+		{
+		case OL_OVERFLOW:
+			break;
+		case OL_CUT_OFF:
 			L.prev_tot_h -= h;
 			return false;
+			break;
+		case OL_CONDENSE:
+			L.offset_vert = tot_h - L.style->height;
+			break;
 		}
 	}
-
+	
 	struct row* prev = L.curr_row;
 	L.curr_row = _new_row();
 	// no free row
@@ -795,11 +806,11 @@ _layout_traverse_hori(struct row* r, float y, void (*cb)(int unicode, float x, f
 	if (r->head && !r->head->next) {
 		row_offset = 0;
 	}
+	float dx = row_offset / r->glyph_count;
 	if (L.style->align_h == HA_TILE) {
 		float grid = (float)L.style->width / r->glyph_count;
 		float start_x = _get_start_x(r->width + row_offset) + grid * 0.5f;
 		float x = start_x;
-		float dx = row_offset / r->glyph_count;
 		struct glyph* g = r->head;
 		while (g) {
 			if (L.style->align_v == VA_TILE) {
@@ -813,7 +824,6 @@ _layout_traverse_hori(struct row* r, float y, void (*cb)(int unicode, float x, f
 	} else {
 		float start_x = _get_start_x(r->width + row_offset);
 		float x = start_x;
-		float dx = row_offset / r->glyph_count;
 		struct glyph* g = r->head;
 		while (g) {
 			if (L.style->align_v == VA_TILE) {
@@ -833,11 +843,16 @@ gtxt_layout_traverse(void (*cb)(int unicode, float x, float y, float w, float h,
 		assert(!L.head);
 		return;
 	}
+	float dy = 0;
+	if (L.row_count > 1) {
+		dy = L.offset_vert / L.row_count;
+	}
 	if (L.style->align_v == VA_TILE) {
 		float grid = (float)L.style->height / L.row_count;
 		float y = _get_start_y() -  grid * 0.5f;
 		struct row* r = L.head;
 		while (r) {
+			y += dy;
 			_layout_traverse_hori(r, y, cb, ud);
 			y -= grid;
 			r = r->next;
@@ -846,6 +861,7 @@ gtxt_layout_traverse(void (*cb)(int unicode, float x, float y, float w, float h,
 		float y = _get_start_y();
 		struct row* r = L.head;
 		while (r) {
+			y += dy;
 			_layout_traverse_hori(r, y, cb, ud);
 			y -= r->height * L.style->space_v;
 			r = r->next;
