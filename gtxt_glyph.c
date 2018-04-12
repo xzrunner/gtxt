@@ -11,6 +11,7 @@
 struct glyph_key {
 	int unicode;
 	struct gtxt_glyph_style s;
+	float line_x;
 };
 
 struct glyph_bitmap {
@@ -81,13 +82,15 @@ _hash_func(int hash_sz, void* key) {
 			(hk->s.font_size * 101) ^
 			_hash_color(&hk->s.font_color) ^
 			(int)(hk->s.edge_size * 10000) ^
-			_hash_color(&hk->s.edge_color);
+			_hash_color(&hk->s.edge_color) ^ 
+			((int)hk->line_x * 13);
 	} else {
 		hash = 
 			hk->unicode ^ 
 			(hk->s.font * 97) ^ 
 			(hk->s.font_size * 101) ^
-			_hash_color(&hk->s.font_color);
+			_hash_color(&hk->s.font_color) ^
+			((int)hk->line_x * 13);
 	}
 	return hash % hash_sz;
 }
@@ -100,7 +103,8 @@ _equal_func(void* key0, void* key1) {
 		hk0->s.font == hk1->s.font &&
 		hk0->s.font_size == hk1->s.font_size &&
 		memcmp(&hk0->s.font_color, &hk1->s.font_color, sizeof(hk0->s.font_color)) == 0 &&
-		hk0->s.edge == hk1->s.edge) {
+		hk0->s.edge == hk1->s.edge &&
+		hk0->line_x == hk1->line_x) {
 		if (hk0->s.edge) {
 			return hk0->s.edge_size	== hk1->s.edge_size
 			    && memcmp(&hk0->s.edge_color, &hk1->s.edge_color, sizeof(hk0->s.edge_color)) == 0;
@@ -182,7 +186,7 @@ _new_node() {
 }
 
 struct gtxt_glyph_layout* 
-gtxt_glyph_get_layout(int unicode, const struct gtxt_glyph_style* style) {
+gtxt_glyph_get_layout(int unicode, float line_x, const struct gtxt_glyph_style* style) {
 	if (!C) {
 		return NULL;
 	}
@@ -199,7 +203,7 @@ gtxt_glyph_get_layout(int unicode, const struct gtxt_glyph_style* style) {
 
 		int ft_count = gtxt_ft_get_font_cout();
 		if (style->font < ft_count) {
-			gtxt_ft_get_layout(unicode, style, &g->layout);
+			gtxt_ft_get_layout(unicode, line_x, style, &g->layout);
 		} else {
 			GET_UF_LAYOUT(unicode, ft_count - style->font, &g->layout);
 		}
@@ -212,7 +216,7 @@ gtxt_glyph_get_layout(int unicode, const struct gtxt_glyph_style* style) {
 }
 
 uint32_t* 
-gtxt_glyph_get_bitmap(int unicode, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) {
+gtxt_glyph_get_bitmap(int unicode, float line_x, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) {
 	if (!C) {
 		return NULL;
 	}
@@ -220,6 +224,7 @@ gtxt_glyph_get_bitmap(int unicode, const struct gtxt_glyph_style* style, struct 
 	struct glyph_key key;
 	key.unicode = unicode;
 	key.s = *style;
+	key.line_x = line_x;
 
 	struct glyph* g = (struct glyph*)ds_hash_query(C->hash, &key);
 	if (g) {
@@ -261,7 +266,7 @@ gtxt_glyph_get_bitmap(int unicode, const struct gtxt_glyph_style* style, struct 
 	}
 
 	uint32_t* ret_buf = NULL;
-	uint32_t* buf = gtxt_ft_gen_char(unicode, style, &g->layout);
+	uint32_t* buf = gtxt_ft_gen_char(unicode, line_x, style, &g->layout);
 	if (!buf && CHAR_GEN) {
 		buf = CHAR_GEN("", style, &g->layout);
 	}

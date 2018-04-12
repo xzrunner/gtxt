@@ -516,7 +516,7 @@ _parser_plain_end(const char* str, int len, int* ptr, int disable_num) {
 
 void 
 gtxt_richtext_parser(const char* str, const struct gtxt_label_style* style, 
-					 int (*cb)(const char* str, struct gtxt_richtext_style* style, void* ud), void* ud) {
+					 int (*cb)(const char* str, float line_x, struct gtxt_richtext_style* style, void* ud), void* ud) {
 	struct richtext_state rs;
 	_init_state(&rs, style);
 
@@ -543,7 +543,7 @@ gtxt_richtext_parser(const char* str, const struct gtxt_label_style* style,
 			if (str[i] == '\\') {
 				token_disable = true;
 			}
-			int n = cb(&str[i], &rs.s, ud);
+			int n = cb(&str[i], 0, &rs.s, ud);
 			if (n < 0) {
 				break;
 			}

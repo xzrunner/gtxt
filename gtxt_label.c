@@ -11,10 +11,10 @@
 
 static struct ds_array* UNICODE_BUF;
 
-void (*DRAW_GLYPH)(int unicode, float x, float y, float w, float h, const struct gtxt_glyph_style* gs, const struct gtxt_draw_style* ds, void* ud);
+void (*DRAW_GLYPH)(int unicode, float x, float y, float w, float h, float start_x, const struct gtxt_glyph_style* gs, const struct gtxt_draw_style* ds, void* ud);
 
 void 
-gtxt_label_cb_init(void (*draw_glyph)(int unicode, float x, float y, float w, float h, const struct gtxt_glyph_style* gs, const struct gtxt_draw_style* ds, void* ud)) {
+gtxt_label_cb_init(void (*draw_glyph)(int unicode, float x, float y, float w, float h, float start_x, const struct gtxt_glyph_style* gs, const struct gtxt_draw_style* ds, void* ud)) {
 	DRAW_GLYPH = draw_glyph;
 }
 
@@ -24,9 +24,9 @@ struct draw_params {
 };
 
 static inline void
-_draw_glyph_cb(int unicode, float x, float y, float w, float h, float row_y, void* ud) {
+_draw_glyph_cb(int unicode, float x, float y, float w, float h, float row_y, float start_x, void* ud) {
 	struct draw_params* params = (struct draw_params*)ud;
-	DRAW_GLYPH(unicode, x, y, w, h, &params->style->gs, NULL, params->ud);
+	DRAW_GLYPH(unicode, x, y, w, h, start_x, &params->style->gs, NULL, params->ud);
 }
 
 struct layout_pos {
@@ -57,7 +57,7 @@ _draw_unicode(const char* str, int unicode_len, struct gtxt_richtext_style* styl
 	} else if (style->ds.pos_type == GRPT_MIDDLE && str[unicode_len] == '<') {
 		style->ds.pos_type = GRPT_END;
 	}
-	DRAW_GLYPH(pos->unicode, pos->x, pos->y, pos->w, pos->h, &style->gs, &style->ds, params->ud);
+	DRAW_GLYPH(pos->unicode, pos->x, pos->y, pos->w, pos->h, 0, &style->gs, &style->ds, params->ud);
 }
 
 static inline int
@@ -117,7 +117,7 @@ gtxt_label_draw(const char* str, const struct gtxt_label_style* style, void* ud)
 }
 
 static inline int
-_layout_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void* ud) {
+_layout_richtext_glyph_cb(const char* str, float line_x, struct gtxt_richtext_style* style, void* ud) {
 	int ret = gtxt_unicode_len(str[0]);
 	int unicode = gtxt_get_unicode(str, ret);
 
@@ -127,7 +127,7 @@ _layout_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, vo
 		gtxt_ext_sym_get_size(style->ext_sym_ud, &w, &h);
 		status = gtxt_layout_ext_sym(w, h);
 	} else {
-		status = gtxt_layout_single(unicode, style);
+		status = gtxt_layout_single(unicode, line_x, style);
 	}
 
 	int n = 0;
@@ -158,7 +158,7 @@ _layout_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, vo
 }
 
 static inline void
-_get_layout_result_cb(int unicode, float x, float y, float w, float h, float row_y, void* ud) {
+_get_layout_result_cb(int unicode, float x, float y, float w, float h, float row_y, float start_x, void* ud) {
 	struct draw_richtext_params* params = (struct draw_richtext_params*)ud;
 	assert(params->idx < params->sz);
 
@@ -247,7 +247,7 @@ struct query_richtext_params {
 };
 
 static inline int
-_query_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void* ud) {
+_query_richtext_glyph_cb(const char* str, float line_x, struct gtxt_richtext_style* style, void* ud) {
 	int len = gtxt_unicode_len(str[0]);
 
 	struct query_richtext_params* params = (struct query_richtext_params*)ud;

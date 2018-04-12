@@ -444,7 +444,7 @@ _row_backtracking(struct row* row, float remain) {
 
 static enum GLO_STATUS
 _add_connected_sym(struct gtxt_richtext_style* style, const struct gtxt_glyph_style* gs) {
-	struct gtxt_glyph_layout* layout = gtxt_glyph_get_layout(CONNECT_UNICODE, gs);
+	struct gtxt_glyph_layout* layout = gtxt_glyph_get_layout(CONNECT_UNICODE, 0, gs);
 	float conn_w = layout->advance * L.style->space_h;
 	if (conn_w > L.style->width) {
 		return GLOS_FULL;
@@ -465,7 +465,7 @@ _add_connected_sym(struct gtxt_richtext_style* style, const struct gtxt_glyph_st
 	prev_row->offset = 0;
 	prev_row->tail = prev_glyph;
 	prev_glyph->next = NULL;
-	gtxt_layout_single(CONNECT_UNICODE, NULL);
+	gtxt_layout_single(CONNECT_UNICODE, 0, NULL);
 	prev_row->offset = L.style->width - prev_row->width;
 
 	if (!_new_line()) {
@@ -474,7 +474,7 @@ _add_connected_sym(struct gtxt_richtext_style* style, const struct gtxt_glyph_st
 	} else {
 		struct glyph* g = next_glyph;
 		while (g) {
-			gtxt_layout_single(g->unicode, style);
+			gtxt_layout_single(g->unicode, 0, style);
 			g = g->next;
 		}
 		_remove_glyph_to_end(next_glyph);
@@ -483,7 +483,7 @@ _add_connected_sym(struct gtxt_richtext_style* style, const struct gtxt_glyph_st
 }
 
 static enum GLO_STATUS
-_move_chars2nextline(struct gtxt_richtext_style* style, struct glyph* prev_glyph) {
+_move_chars2nextline(float line_x, struct gtxt_richtext_style* style, struct glyph* prev_glyph) {
 	struct row* prev_row = L.curr_row;
 
 	struct glyph* g = prev_glyph->next;
@@ -502,7 +502,7 @@ _move_chars2nextline(struct gtxt_richtext_style* style, struct glyph* prev_glyph
 	} else {
 		struct glyph* g = prev_glyph->next;
 		while (g) {
-			gtxt_layout_single(g->unicode, style);
+			gtxt_layout_single(g->unicode, line_x, style);
 			g = g->next;
 		}
 		_remove_glyph_to_end(prev_glyph->next);
@@ -512,7 +512,7 @@ _move_chars2nextline(struct gtxt_richtext_style* style, struct glyph* prev_glyph
 }
 
 static enum GLO_STATUS
-_new_line_for_connected(struct gtxt_richtext_style* style, const struct gtxt_glyph_style* gs, float w) {
+_new_line_for_connected(float line_x, struct gtxt_richtext_style* style, const struct gtxt_glyph_style* gs, float w) {
 	L.curr_row->offset = L.style->width - L.curr_row->width - w;
 	if (-L.curr_row->offset / L.style->width <= MAX_ROW_CONDENSE) {
 		return GLOS_NORMAL;	
@@ -520,12 +520,12 @@ _new_line_for_connected(struct gtxt_richtext_style* style, const struct gtxt_gly
 	if (!L.prev_single_glyph) {
 		return _add_connected_sym(style, gs);
 	} else {
-		return _move_chars2nextline(style, L.prev_single_glyph);
+		return _move_chars2nextline(line_x, style, L.prev_single_glyph);
 	}
 }
 
 static enum GLO_STATUS
-_new_line_for_punctuation(struct gtxt_richtext_style* style, const struct gtxt_glyph_style* gs, float w) {
+_new_line_for_punctuation(float line_x, struct gtxt_richtext_style* style, const struct gtxt_glyph_style* gs, float w) {
 	L.curr_row->offset = L.style->width - L.curr_row->width - w;
 	if (-L.curr_row->offset / L.style->width <= MAX_ROW_CONDENSE) {
 		return GLOS_NORMAL;	
@@ -538,20 +538,20 @@ _new_line_for_punctuation(struct gtxt_richtext_style* style, const struct gtxt_g
 			return GLOS_NORMAL;
 		}
 	} else {
-		return _move_chars2nextline(style, L.prev_prev_glyph);
+		return _move_chars2nextline(line_x, style, L.prev_prev_glyph);
 	}
 }
 
 static enum GLO_STATUS
-_handle_new_line_too_long(int unicode, struct gtxt_richtext_style* style, const struct gtxt_glyph_style* gs, struct gtxt_glyph_layout* g_layout, float w) {
+_handle_new_line_too_long(int unicode, float line_x, struct gtxt_richtext_style* style, const struct gtxt_glyph_style* gs, struct gtxt_glyph_layout* g_layout, float w) {
 	if (L.curr_row->height == 0) {
 		L.curr_row->height = g_layout->metrics_height;
 	}
 	if (_is_punctuation(unicode)) {
-		return _new_line_for_punctuation(style, gs, w);
+		return _new_line_for_punctuation(line_x, style, gs, w);
 	} else if (_get_connected_glyph_type(unicode) == L.connected_glyph_type &&
 		       L.connected_glyph_type != CGT_NULL) {
-		return _new_line_for_connected(style, gs, w);
+		return _new_line_for_connected(line_x, style, gs, w);
 	} else {
 		return _new_line_for_common(w, MAX_ROW_CONDENSE);
 	}
@@ -559,30 +559,30 @@ _handle_new_line_too_long(int unicode, struct gtxt_richtext_style* style, const 
 }
 
 static enum GLO_STATUS
-_handle_new_line(int unicode, struct gtxt_richtext_style* style, const struct gtxt_glyph_style* gs, struct gtxt_glyph_layout* g_layout, float w) {
+_handle_new_line(int unicode, float line_x, struct gtxt_richtext_style* style, const struct gtxt_glyph_style* gs, struct gtxt_glyph_layout* g_layout, float w) {
  	if (unicode == '\n') {
 		return _handle_new_line_force(g_layout);
  	} else if (L.curr_row->width + w + L.curr_row->offset > L.style->width) {
-		return _handle_new_line_too_long(unicode, style, gs, g_layout, w);
+		return _handle_new_line_too_long(unicode, line_x, style, gs, g_layout, w);
 	} else {
 		return GLOS_NORMAL;
 	}
 }
 
 enum GLO_STATUS 
-gtxt_layout_single(int unicode, struct gtxt_richtext_style* style) {
+gtxt_layout_single(int unicode, float line_x, struct gtxt_richtext_style* style) {
 	const struct gtxt_glyph_style* gs;
 	if (style) {
 		gs = &style->gs;
 	} else {
 		gs = &L.style->gs;
 	}
-	struct gtxt_glyph_layout* g_layout = gtxt_glyph_get_layout(unicode, gs);
+	struct gtxt_glyph_layout* g_layout = gtxt_glyph_get_layout(unicode, line_x, gs);
 	if (!g_layout) {
 		return GLOS_NORMAL;
 	}
 	float w = g_layout->advance * L.style->space_h;
-	enum GLO_STATUS status = _handle_new_line(unicode, style, gs, g_layout, w);
+	enum GLO_STATUS status = _handle_new_line(unicode, line_x, style, gs, g_layout, w);
 	if (status == GLOS_NEWLINE || status == GLOS_FULL) {
 		return status;
 	}
@@ -629,7 +629,7 @@ gtxt_layout_multi(struct ds_array* unicodes) {
 
 	for (int i = 0; i < glyph_sz; ++i) {
 		int unicode = *(int*)ds_array_fetch(unicodes, i);
-		enum GLO_STATUS status = gtxt_layout_single(unicode, NULL);
+		enum GLO_STATUS status = gtxt_layout_single(unicode, 0, NULL);
 		if (status == GLOS_FULL) {
 			gtxt_layout_add_omit_sym(&L.style->gs);
 			break;
@@ -662,7 +662,7 @@ _row_make_room(struct row* row, float remain) {
 
 int
 gtxt_layout_add_omit_sym(const struct gtxt_glyph_style* gs) {
-	struct gtxt_glyph_layout* layout = gtxt_glyph_get_layout(OMIT_UNICODE, gs);
+	struct gtxt_glyph_layout* layout = gtxt_glyph_get_layout(OMIT_UNICODE, 0, gs);
 	float omit_w = layout->advance * L.style->space_h * OMIT_COUNT;
 	if (omit_w > L.style->width) {
 		return 0;
@@ -673,7 +673,7 @@ gtxt_layout_add_omit_sym(const struct gtxt_glyph_style* gs) {
 	int rm_count = _row_make_room(row, max_w);
 
 	for (int i = 0; i < OMIT_COUNT; ++i) {
-		gtxt_layout_single(OMIT_UNICODE, NULL);
+		gtxt_layout_single(OMIT_UNICODE, 0, NULL);
 	}
 	row->width += omit_w;
 	row->glyph_count += OMIT_COUNT - rm_count;
@@ -785,7 +785,7 @@ _get_start_y() {
 }
 
 static void
-_layout_traverse_hori(struct row* r, float y, void (*cb)(int unicode, float x, float y, float w, float h, float row_y, void* ud), void* ud) {
+_layout_traverse_hori(struct row* r, float y, void (*cb)(int unicode, float x, float y, float w, float h, float row_y, float start_x, void* ud), void* ud) {
 	if (r->glyph_count == 0) {
 		assert(!r->head && !r->tail);
 		return;
@@ -797,27 +797,29 @@ _layout_traverse_hori(struct row* r, float y, void (*cb)(int unicode, float x, f
 	}
 	if (L.style->align_h == HA_TILE) {
 		float grid = (float)L.style->width / r->glyph_count;
-		float x = _get_start_x(r->width + row_offset) + grid * 0.5f;
+		float start_x = _get_start_x(r->width + row_offset) + grid * 0.5f;
+		float x = start_x;
 		float dx = row_offset / r->glyph_count;
 		struct glyph* g = r->head;
 		while (g) {
 			if (L.style->align_v == VA_TILE) {
-				cb(g->unicode, x, y, g->w, g->h, y, ud);
+				cb(g->unicode, x, y, g->w, g->h, y, start_x, ud);
 			} else {
-				cb(g->unicode, x, y + g->y - g->h * 0.5f, g->w, g->h, y, ud);
+				cb(g->unicode, x, y + g->y - g->h * 0.5f, g->w, g->h, y, start_x, ud);
 			}
 			x += grid + dx;
 			g = g->next;
 		}
 	} else {
-		float x = _get_start_x(r->width + row_offset);
+		float start_x = _get_start_x(r->width + row_offset);
+		float x = start_x;
 		float dx = row_offset / r->glyph_count;
 		struct glyph* g = r->head;
 		while (g) {
 			if (L.style->align_v == VA_TILE) {
-				cb(g->unicode, x + g->x + g->w * 0.5f, y, g->w, g->h, y, ud);
+				cb(g->unicode, x + g->x + g->w * 0.5f, y, g->w, g->h, y, start_x, ud);
 			} else {
-				cb(g->unicode, x + g->x + g->w * 0.5f, y + g->y - g->h * 0.5f, g->w, g->h, y, ud);
+				cb(g->unicode, x + g->x + g->w * 0.5f, y + g->y - g->h * 0.5f, g->w, g->h, y, start_x, ud);
 			}
 			x += g->out_width + dx;
 			g = g->next;
@@ -826,7 +828,7 @@ _layout_traverse_hori(struct row* r, float y, void (*cb)(int unicode, float x, f
 }
 
 void 
-gtxt_layout_traverse(void (*cb)(int unicode, float x, float y, float w, float h, float row_y, void* ud), void* ud) {
+gtxt_layout_traverse(void (*cb)(int unicode, float x, float y, float w, float h, float row_y, float start_x, void* ud), void* ud) {
 	if (L.row_count == 0) {
 		assert(!L.head);
 		return;
