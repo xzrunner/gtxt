@@ -78,7 +78,7 @@ struct layout {
 
 static struct layout L;
 
-void 
+void
 gtxt_layout_release() {
 	free(L.glyph_freelist);
 	free(L.row_freelist);
@@ -106,12 +106,12 @@ _prepare_glyph_freelist(int cap) {
 
 	if (L.glyph_freelist) {
 		struct glyph* end = L.glyph_freelist;
-		while (end->next) { 
+		while (end->next) {
 			end = end->next;
 		}
 		end->next = new_list;
 	} else {
-		L.glyph_freelist = new_list;				
+		L.glyph_freelist = new_list;
 	}
 
 	L.glyph_cap = cap;
@@ -138,7 +138,7 @@ _prepare_row_freelist(int cap) {
 
 	if (L.row_freelist) {
 		struct row* end = L.row_freelist;
-		while (end->next) { 
+		while (end->next) {
 			end = end->next;
 		}
 		end->next = new_list;
@@ -180,7 +180,7 @@ _prepare_row_freelist(int cap) {
 // 	L.##type##_cap = (cap); \
 // } while (0)
 
-static inline void 
+static inline void
 _prepare_freelist(int row_cap, int glyph_cap) {
 	_prepare_row_freelist(row_cap);
 	_prepare_glyph_freelist(glyph_cap);
@@ -201,7 +201,7 @@ _new_row() {
 	return r;
 }
 
-void 
+void
 gtxt_layout_begin(const struct gtxt_label_style* style) {
 	_prepare_freelist(INIT_ROW_CAP, INIT_GLYPH_CAP);
 
@@ -221,7 +221,7 @@ gtxt_layout_begin(const struct gtxt_label_style* style) {
 	L.row_count = 1;
 }
 
-void 
+void
 gtxt_layout_end() {
 	struct row* last_row = L.head;
 	while (last_row->next) {
@@ -301,7 +301,7 @@ _new_line() {
 			break;
 		}
 	}
-	
+
 	struct row* prev = L.curr_row;
 	L.curr_row = _new_row();
 	// no free row
@@ -328,14 +328,14 @@ _add_glyph(struct glyph* g) {
 
 static inline bool
 _is_letter(int unicode) {
-	return 
+	return
 		(unicode >= 97 && unicode <= 122)	||		// a-z
 		(unicode >= 65 && unicode <= 90);			// A-Z
 }
 
 static inline bool
 _is_number(int unicode) {
-	return 
+	return
 		(unicode >= 48 && unicode <= 57) ||		// 0-9
 		unicode == 46		||		// .
 		unicode == 37		||		// %
@@ -356,7 +356,7 @@ _get_connected_glyph_type(int unicode) {
 
 static inline bool
 _is_punctuation(int unicode) {
-	return 
+	return
 		unicode == 65292	||		// £¬
 		unicode == 12290	||		// ¡£
 		unicode == 65311	||		// £¿
@@ -526,7 +526,7 @@ static enum GLO_STATUS
 _new_line_for_connected(float line_x, struct gtxt_richtext_style* style, const struct gtxt_glyph_style* gs, float w) {
 	L.curr_row->offset = L.style->width - L.curr_row->width - w;
 	if (-L.curr_row->offset / L.style->width <= MAX_ROW_CONDENSE) {
-		return GLOS_NORMAL;	
+		return GLOS_NORMAL;
 	}
 	if (!L.prev_single_glyph) {
 		return _add_connected_sym(style, gs);
@@ -539,7 +539,7 @@ static enum GLO_STATUS
 _new_line_for_punctuation(float line_x, struct gtxt_richtext_style* style, const struct gtxt_glyph_style* gs, float w) {
 	L.curr_row->offset = L.style->width - L.curr_row->width - w;
 	if (-L.curr_row->offset / L.style->width <= MAX_ROW_CONDENSE) {
-		return GLOS_NORMAL;	
+		return GLOS_NORMAL;
 	}
 	if (!L.prev_prev_glyph) {
 		L.curr_row->offset = L.style->width - L.curr_row->width;
@@ -580,7 +580,7 @@ _handle_new_line(int unicode, float line_x, struct gtxt_richtext_style* style, c
 	}
 }
 
-enum GLO_STATUS 
+enum GLO_STATUS
 gtxt_layout_single(int unicode, float line_x, struct gtxt_richtext_style* style) {
 	const struct gtxt_glyph_style* gs;
 	if (style) {
@@ -633,7 +633,7 @@ gtxt_layout_single(int unicode, float line_x, struct gtxt_richtext_style* style)
 	return status;
 }
 
-void 
+void
 gtxt_layout_multi(struct ds_array* unicodes) {
 	int glyph_sz = ds_array_size(unicodes);
 	_prepare_glyph_freelist(glyph_sz * 2);
@@ -692,7 +692,7 @@ gtxt_layout_add_omit_sym(const struct gtxt_glyph_style* gs) {
 	return OMIT_COUNT - rm_count;
 }
 
-enum GLO_STATUS 
+enum GLO_STATUS
 gtxt_layout_ext_sym(int width, int height) {
 	if (L.curr_row->width + width > L.style->width) {
 		if (!_new_line()) {
@@ -775,7 +775,7 @@ _get_start_y() {
 			break;
 		default:
 			assert(0);
-		}		
+		}
 	} else {
 		struct row* r = L.head;
 		switch (L.style->align_v) {
@@ -837,7 +837,7 @@ _layout_traverse_hori(struct row* r, float y, void (*cb)(int unicode, float x, f
 	}
 }
 
-void 
+void
 gtxt_layout_traverse(void (*cb)(int unicode, float x, float y, float w, float h, float row_y, float start_x, void* ud), void* ud) {
 	if (L.row_count == 0) {
 		assert(!L.head);
@@ -869,7 +869,7 @@ gtxt_layout_traverse(void (*cb)(int unicode, float x, float y, float w, float h,
 	}
 }
 
-void 
+void
 gtxt_get_layout_size(float* width, float* height) {
 	*width = 0;
 	struct row* r = L.head;

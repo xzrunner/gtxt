@@ -15,7 +15,7 @@
 //	return unicode;
 //}
 
-int 
+int
 gtxt_unicode_len(const char chr) {
 	uint8_t c = (uint8_t)chr;
 	if ((c&0x80) == 0) {
@@ -33,7 +33,7 @@ gtxt_unicode_len(const char chr) {
 	}
 }
 
-int 
+int
 gtxt_get_unicode(const char* str, int n) {
 	int unicode = str[0] & ((1 << (8 - n)) - 1);
 	for (int i = 1; i < n; ++i) {

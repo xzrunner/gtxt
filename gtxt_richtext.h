@@ -59,14 +59,14 @@ void gtxt_richtext_add_font(const char* name);
 
 void gtxt_richtext_ext_sym_cb_init(void* (*create)(const char* str),
 								   void (*release)(void* ext_sym),
-								   void (*size)(void* ext_sym, int* width, int* height), 
+								   void (*size)(void* ext_sym, int* width, int* height),
 								   void (*render)(void* ext_sym, float x, float y, void* ud),
 								   bool (*query)(void* ext_sym, float x, float y, float w, float h, int qx, int qy, void* ud));
 void gtxt_ext_sym_get_size(void* ext_sym, int* width, int* height);
 void gtxt_ext_sym_render(void* ext_sym, float x, float y, void* ud);
 bool gtxt_ext_sym_query(void* ext_sym, float x, float y, float w, float h, int qx, int qy, void* ud);
 
-void gtxt_richtext_parser(const char* str, const struct gtxt_label_style* style, 
+void gtxt_richtext_parser(const char* str, const struct gtxt_label_style* style,
 						  int (*cb)(const char* str, float line_x, struct gtxt_richtext_style* style, void* ud), void* ud);
 
 void gtxt_richtext_parser_dynamic(const char* str, const struct gtxt_label_style* style, int time,

@@ -34,7 +34,7 @@ struct span {
 	int coverage;
 };
 
-#define MAX_SPAN 2048 
+#define MAX_SPAN 2048
 
 struct spans {
 	struct span items[MAX_SPAN];
@@ -47,7 +47,7 @@ static struct spans* OUT_SPANS = NULL;
 static union gtxt_color* BUF;
 static size_t BUF_SZ;
 
-void 
+void
 gtxt_ft_create() {
 	FT = (struct freetype*)malloc(sizeof(*FT));
 	memset(FT, 0, sizeof(*FT));
@@ -58,7 +58,7 @@ gtxt_ft_create() {
 	memset(OUT_SPANS, 0, sizeof(*OUT_SPANS));
 }
 
-void 
+void
 gtxt_ft_release() {
 	for (int i = 0; i < FT->count; ++i) {
 		struct font* f = &FT->fonts[i];
@@ -73,7 +73,7 @@ gtxt_ft_release() {
 	BUF_SZ = 0;
 }
 
-int 
+int
 gtxt_ft_add_font(const char* name, const char* filepath) {
 	if (FT->count >= MAX_FONTS) {
 		return -1;
@@ -102,13 +102,13 @@ gtxt_ft_add_font(const char* name, const char* filepath) {
 		free(f->buf);
 		return -1;
 	}
-	
+
 	gtxt_richtext_add_font(name);
 
 	return FT->count - 1;
 }
 
-int 
+int
 gtxt_ft_get_font_cout() {
 	return FT->count;
 }
@@ -219,7 +219,7 @@ _draw_with_edge(struct font* font, FT_UInt gindex, float line_x, const struct gt
 	if (FT_Load_Glyph(ft_face, gindex, FT_LOAD_NO_BITMAP)) {
 		return false;
 	}
-	
+
 	if (ft_face->glyph->format != FT_GLYPH_FORMAT_OUTLINE) {
 		return false;
 	}
@@ -227,7 +227,7 @@ _draw_with_edge(struct font* font, FT_UInt gindex, float line_x, const struct gt
 	// Render the basic glyph to a span list.
 	memset(IN_SPANS, 0, sizeof(*IN_SPANS));
 	_draw_spans(ft_library, &ft_face->glyph->outline, IN_SPANS);
-	
+
 	// Next we need the spans for the outline.
 	memset(OUT_SPANS, 0, sizeof(*OUT_SPANS));
 
@@ -280,7 +280,7 @@ _draw_with_edge(struct font* font, FT_UInt gindex, float line_x, const struct gt
 		_rect_merge_point(&rect, (float)s->x, (float)s->y);
 		_rect_merge_point(&rect, (float)(s->x + s->width - 1), (float)s->y);
 	}
-	
+
 	int img_w = (int)_rect_width(&rect),
 		img_h = (int)_rect_height(&rect);
 	layout->sizer.width = (float)img_w;
@@ -329,7 +329,7 @@ _load_glyph_to_bitmap(int unicode, float line_x, const struct gtxt_glyph_style* 
 		default_cb = NULL;
 	}
 	if (style->edge) {
-		return _draw_with_edge(sfont, gindex, line_x, &style->font_color, 
+		return _draw_with_edge(sfont, gindex, line_x, &style->font_color,
 			style->edge_size, &style->edge_color, layout, edge_cb);
 	} else {
 		return _draw_default(sfont, gindex, line_x, &style->font_color, layout, default_cb);
@@ -378,7 +378,7 @@ _lerp_color(const struct gtxt_glyph_color* col, float line_x, int w, int h, int 
 			} else if (p >= col->mode.TWO.end_pos) {
 				ret = col->mode.TWO.end_col;
 			} else {
-				ret = _lerp_color2(col->mode.TWO.begin_col, col->mode.TWO.end_col, 
+				ret = _lerp_color2(col->mode.TWO.begin_col, col->mode.TWO.end_col,
 					col->mode.TWO.begin_pos, col->mode.TWO.end_pos, p);
 			}
 		}
@@ -394,10 +394,10 @@ _lerp_color(const struct gtxt_glyph_color* col, float line_x, int w, int h, int 
 				ret = col->mode.THREE.end_col;
 			} else {
 				if (p < col->mode.THREE.mid_pos) {
-					ret = _lerp_color2(col->mode.THREE.begin_col, col->mode.THREE.mid_col, 
+					ret = _lerp_color2(col->mode.THREE.begin_col, col->mode.THREE.mid_col,
 						col->mode.THREE.begin_pos, col->mode.THREE.mid_pos, p);
 				} else {
-					ret = _lerp_color2(col->mode.THREE.mid_col, col->mode.THREE.end_col, 
+					ret = _lerp_color2(col->mode.THREE.mid_col, col->mode.THREE.end_col,
 						col->mode.THREE.mid_pos, col->mode.THREE.end_pos, p);
 				}
 			}
@@ -480,12 +480,12 @@ _copy_glyph_with_edge(int img_x, int img_y, int img_w, int img_h, float line_x,
 	}
 }
 
-void 
+void
 gtxt_ft_get_layout(int unicode, float line_x, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) {
 	_load_glyph_to_bitmap(unicode, line_x, style, layout, NULL, NULL);
 }
 
-uint32_t* 
+uint32_t*
 gtxt_ft_gen_char(int unicode, float line_x, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) {
 	if (FT->count == 0) {
 		return NULL;

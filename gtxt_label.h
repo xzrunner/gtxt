@@ -39,7 +39,7 @@ struct gtxt_label_style {
 
 	int align_h;
 	int align_v;
-	
+
 	float space_h;
 	float space_v;
 

@@ -30,7 +30,7 @@ struct glyph {
 
 	struct glyph_bitmap* bitmap;
 	int bmp_version;
-	struct gtxt_glyph_layout layout; 
+	struct gtxt_glyph_layout layout;
 
 	struct glyph *prev, *next;
 };
@@ -70,24 +70,24 @@ _hash_color(struct gtxt_glyph_color* col) {
 	return icol;
 }
 
-static inline unsigned int 
+static inline unsigned int
 _hash_func(int hash_sz, void* key) {
 	struct glyph_key* hk = (struct glyph_key*)key;
 	uint32_t hash;
 	if (hk->s.edge) {
 		struct gtxt_glyph_color* ecol = &hk->s.edge_color;
-		hash = 
-			hk->unicode ^ 
-			(hk->s.font * 97) ^ 
+		hash =
+			hk->unicode ^
+			(hk->s.font * 97) ^
 			(hk->s.font_size * 101) ^
 			_hash_color(&hk->s.font_color) ^
 			(int)(hk->s.edge_size * 10000) ^
-			_hash_color(&hk->s.edge_color) ^ 
+			_hash_color(&hk->s.edge_color) ^
 			((int)hk->line_x * 13);
 	} else {
-		hash = 
-			hk->unicode ^ 
-			(hk->s.font * 97) ^ 
+		hash =
+			hk->unicode ^
+			(hk->s.font * 97) ^
 			(hk->s.font_size * 101) ^
 			_hash_color(&hk->s.font_color) ^
 			((int)hk->line_x * 13);
@@ -95,7 +95,7 @@ _hash_func(int hash_sz, void* key) {
 	return hash % hash_sz;
 }
 
-static inline bool 
+static inline bool
 _equal_func(void* key0, void* key1) {
 	struct glyph_key* hk0 = (struct glyph_key*)key0;
 	struct glyph_key* hk1 = (struct glyph_key*)key1;
@@ -116,7 +116,7 @@ _equal_func(void* key0, void* key1) {
 	}
 }
 
-void 
+void
 gtxt_glyph_create(int cap_bitmap, int cap_layout,
 				  uint32_t* (*char_gen)(const char* str, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout),
 				  void (*get_uf_layout)(int unicode, int font, struct gtxt_glyph_layout* layout)) {
@@ -138,7 +138,7 @@ gtxt_glyph_create(int cap_bitmap, int cap_layout,
 	DS_FREELIST_CREATE(glyph, C->gly_buf, cap_layout, (intptr_t)C->bmp_buf.freelist + bitmap_sz);
 }
 
-void 
+void
 gtxt_glyph_release() {
 	struct glyph_bitmap* bmp = C->bmp_buf.freelist;
 	while (bmp) {
@@ -185,7 +185,7 @@ _new_node() {
 	return g;
 }
 
-struct gtxt_glyph_layout* 
+struct gtxt_glyph_layout*
 gtxt_glyph_get_layout(int unicode, float line_x, const struct gtxt_glyph_style* style) {
 	if (!C) {
 		return NULL;
@@ -215,7 +215,7 @@ gtxt_glyph_get_layout(int unicode, float line_x, const struct gtxt_glyph_style* 
 	}
 }
 
-uint32_t* 
+uint32_t*
 gtxt_glyph_get_bitmap(int unicode, float line_x, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) {
 	if (!C) {
 		return NULL;

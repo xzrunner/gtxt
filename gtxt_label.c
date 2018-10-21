@@ -13,7 +13,7 @@ static struct ds_array* UNICODE_BUF;
 
 void (*DRAW_GLYPH)(int unicode, float x, float y, float w, float h, float start_x, const struct gtxt_glyph_style* gs, const struct gtxt_draw_style* ds, void* ud);
 
-void 
+void
 gtxt_label_cb_init(void (*draw_glyph)(int unicode, float x, float y, float w, float h, float start_x, const struct gtxt_glyph_style* gs, const struct gtxt_draw_style* ds, void* ud)) {
 	DRAW_GLYPH = draw_glyph;
 }
@@ -49,7 +49,7 @@ _draw_unicode(const char* str, int unicode_len, struct gtxt_richtext_style* styl
 	style->ds.row_y = pos->row_y;
 	if (style->ds.row_h == 0) {
 		style->ds.row_h = pos->h;
-	} 
+	}
 	if (style->ds.pos_type == GRPT_NULL) {
 		style->ds.pos_type = GRPT_BEGIN;
 	} else if (style->ds.pos_type == GRPT_BEGIN) {
@@ -90,7 +90,7 @@ _draw_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void
 	return len;
 }
 
-void 
+void
 gtxt_label_draw(const char* str, const struct gtxt_label_style* style, void* ud) {
 	if (!UNICODE_BUF) {
 		UNICODE_BUF = ds_array_create(128, sizeof(int));
@@ -173,7 +173,7 @@ _get_layout_result_cb(int unicode, float x, float y, float w, float h, float row
 	++params->idx;
 }
 
-void 
+void
 gtxt_label_draw_richtext(const char* str, const struct gtxt_label_style* style, int time, void* ud) {
 	if (!UNICODE_BUF) {
 		UNICODE_BUF = ds_array_create(128, sizeof(int));
@@ -204,7 +204,7 @@ gtxt_label_draw_richtext(const char* str, const struct gtxt_label_style* style, 
 	ds_array_clear(UNICODE_BUF);
 }
 
-// void 
+// void
 // gtxt_label_reload(const char* str, const struct gtxt_label_style* style) {
 //  	int str_len = strlen(str);
 //  	for (int i = 0; i < str_len; ) {
@@ -229,7 +229,7 @@ gtxt_label_draw_richtext(const char* str, const struct gtxt_label_style* style, 
 // 	return len;
 // }
 
-// void 
+// void
 // gtxt_label_reload_richtext(const char* str, const struct gtxt_label_style* style) {
 // 	gtxt_richtext_parser(str, style, _reload_richtext_glyph_cb, NULL);
 // }
@@ -273,7 +273,7 @@ _query_richtext_glyph_cb(const char* str, float line_x, struct gtxt_richtext_sty
 	return len;
 }
 
-void* 
+void*
 gtxt_label_point_query(const char* str, const struct gtxt_label_style* style, int x, int y, void* ud) {
 	if (!UNICODE_BUF) {
 		UNICODE_BUF = ds_array_create(128, sizeof(int));
@@ -309,7 +309,7 @@ gtxt_label_point_query(const char* str, const struct gtxt_label_style* style, in
 	return params.ret_ext_sym;
 }
 
-void 
+void
 gtxt_get_label_size(const char* str, const struct gtxt_label_style* style, float* width, float* height) {
 	gtxt_layout_begin(style);
 	gtxt_richtext_parser(str, style, _layout_richtext_glyph_cb, NULL);
