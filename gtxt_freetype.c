@@ -21,6 +21,8 @@ struct font {
 
 #define MAX_FONTS 8
 
+//#define PREMULTIPLY_APLHA
+
 struct freetype {
 	struct font	fonts[MAX_FONTS];
 	int count;
@@ -423,10 +425,17 @@ _copy_glyph_default(FT_Bitmap* bitmap, float line_x, const struct gtxt_glyph_col
 			int dst_ptr = y * bitmap->width + x;
 			union gtxt_color* dst = &BUF[dst_ptr];
 			uint8_t a = bitmap->buffer[ptr];
+#ifdef PREMULTIPLY_APLHA
 			dst->r = (src.r * a) >> 8;
 			dst->g = (src.g * a) >> 8;
 			dst->b = (src.b * a) >> 8;
+			dst->a = 255;
+#else
+			dst->r = src.r;
+			dst->g = src.g;
+			dst->b = src.b;
 			dst->a = a;
+#endif // PREMULTIPLY_APLHA
 			++ptr;
 		}
 	}
@@ -450,10 +459,17 @@ _copy_glyph_with_edge(int img_x, int img_y, int img_w, int img_h, float line_x,
 			int index = (int)(y * img_w + x);
 			union gtxt_color* dst = &BUF[index];
 			uint8_t a = out_span->coverage;
+#ifdef PREMULTIPLY_APLHA
 			dst->r = (src.r * a) >> 8;
 			dst->g = (src.g * a) >> 8;
 			dst->b = (src.b * a) >> 8;
+			dst->a = 255;
+#else
+			dst->r = src.r;
+			dst->g = src.g;
+			dst->b = src.b;
 			dst->a = a;
+#endif // PREMULTIPLY_APLHA
 		}
 	}
 
@@ -468,6 +484,7 @@ _copy_glyph_with_edge(int img_x, int img_y, int img_w, int img_h, float line_x,
 			int index = y * img_w + x;
 			union gtxt_color* dst = &BUF[index];
 			uint8_t a = s->coverage;
+#ifdef PREMULTIPLY_APLHA
 			//dst->r = (src.r * a) >> 8;
 			//dst->g = (src.g * a) >> 8;
 			//dst->b = (src.b * a) >> 8;
@@ -475,7 +492,13 @@ _copy_glyph_with_edge(int img_x, int img_y, int img_w, int img_h, float line_x,
 			dst->r = (int)(dst->r + ((src.r - dst->r) * a) / 255.0f);
 			dst->g = (int)(dst->g + ((src.g - dst->g) * a) / 255.0f);
 			dst->b = (int)(dst->b + ((src.b - dst->b) * a) / 255.0f);
-			dst->a = MIN(255, dst->a + a);
+			dst->a = 255;
+#else
+			dst->r = src.r;
+			dst->g = src.g;
+			dst->b = src.b;
+			dst->a = a;
+#endif // PREMULTIPLY_APLHA
 		}
 	}
 }
