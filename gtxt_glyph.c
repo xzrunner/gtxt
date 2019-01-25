@@ -234,6 +234,7 @@ gtxt_glyph_get_layout(int unicode, float line_x, const struct gtxt_glyph_style* 
 	struct glyph_key key;
 	key.unicode = unicode;
 	key.s = *style;
+    key.line_x = line_x;
 
 	struct glyph* g = (struct glyph*)ds_hash_query(C->hash, &key);
 	if (g) {
