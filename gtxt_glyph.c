@@ -50,6 +50,46 @@ static struct glyph_cache* C;
 static uint32_t* (*CHAR_GEN)(const char* str, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout);
 static void      (*GET_UF_LAYOUT)(int unicode, int font, struct gtxt_glyph_layout* layout);
 
+static inline 
+_is_color_same(const struct gtxt_glyph_color* c0, const struct gtxt_glyph_color* c1) {
+    if (c0->mode_type != c1->mode_type) {
+        return false;
+    }
+
+    switch (c0->mode_type)
+    {
+    case 0:
+        if (c0->mode.ONE.color.integer != c1->mode.ONE.color.integer) {
+            return false;
+        }
+        break;
+    case 1:
+        if (c0->mode.TWO.begin_col.integer != c1->mode.TWO.begin_col.integer ||
+            c0->mode.TWO.end_col.integer != c1->mode.TWO.end_col.integer ||
+            c0->mode.TWO.begin_pos != c1->mode.TWO.begin_pos ||
+            c0->mode.TWO.end_pos != c1->mode.TWO.end_pos ||
+            c0->mode.TWO.angle != c1->mode.TWO.angle) {
+            return false;
+        }
+        break;
+    case 2:
+        if (c0->mode.THREE.begin_col.integer != c1->mode.THREE.begin_col.integer ||
+            c0->mode.THREE.mid_col.integer != c1->mode.THREE.mid_col.integer ||
+            c0->mode.THREE.end_col.integer != c1->mode.THREE.end_col.integer ||
+            c0->mode.THREE.begin_pos != c1->mode.THREE.begin_pos ||
+            c0->mode.THREE.mid_pos != c1->mode.THREE.mid_pos ||
+            c0->mode.THREE.end_pos != c1->mode.THREE.end_pos ||
+            c0->mode.THREE.angle != c1->mode.THREE.angle) {
+            return false;
+        }
+        break;
+    default:
+        assert(0);
+    }
+
+    return true;
+}
+
 static inline uint32_t
 _hash_color(struct gtxt_glyph_color* col) {
 	uint32_t icol = 0;
@@ -102,17 +142,17 @@ _equal_func(void* key0, void* key1) {
 	if (hk0->unicode == hk1->unicode &&
 		hk0->s.font == hk1->s.font &&
 		hk0->s.font_size == hk1->s.font_size &&
-		memcmp(&hk0->s.font_color, &hk1->s.font_color, sizeof(hk0->s.font_color)) == 0 &&
+        _is_color_same(&hk0->s.font_color, &hk1->s.font_color) &&
 		hk0->s.edge == hk1->s.edge &&
 		hk0->line_x == hk1->line_x) {
 		if (hk0->s.edge) {
-			return hk0->s.edge_size	== hk1->s.edge_size
-			    && memcmp(&hk0->s.edge_color, &hk1->s.edge_color, sizeof(hk0->s.edge_color)) == 0;
+            return hk0->s.edge_size	== hk1->s.edge_size
+			    && _is_color_same(&hk0->s.edge_color, &hk1->s.edge_color);
 		} else {
-			return true;
+            return true;
 		}
 	} else {
-		return false;
+        return false;
 	}
 }
 
