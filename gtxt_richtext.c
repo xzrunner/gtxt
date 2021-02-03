@@ -209,7 +209,7 @@ _parser_font(const char* token) {
 
 static inline void
 _parser_edge(const char* token, struct edge_style* es) {
-	char* end;
+	char* end = NULL;
 	if (_str_head_equal(token, "size=")) {
 		float sz = (float)strtod(&token[strlen("size=")], &end);
 		if (sz >= 0) {
