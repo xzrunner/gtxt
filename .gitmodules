@@ -1,0 +1,6 @@
+[submodule "external/fs"]
+	path = external/fs
+	url = git@github.com:xzrunner/fs.git
+[submodule "external/ds"]
+	path = external/ds
+	url = git@github.com:xzrunner/ds.git

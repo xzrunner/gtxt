@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"Y:/zz/gtxt/external/freetype/out_arm/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

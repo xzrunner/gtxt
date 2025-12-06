@@ -1,0 +1,5 @@
+Y:/zz/gtxt/external/freetype/out_arm/CMakeFiles/freetype.dir
+Y:/zz/gtxt/external/freetype/out_arm/CMakeFiles/PACKAGE.dir
+Y:/zz/gtxt/external/freetype/out_arm/CMakeFiles/INSTALL.dir
+Y:/zz/gtxt/external/freetype/out_arm/CMakeFiles/ALL_BUILD.dir
+Y:/zz/gtxt/external/freetype/out_arm/CMakeFiles/ZERO_CHECK.dir
