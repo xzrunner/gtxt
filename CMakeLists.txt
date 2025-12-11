@@ -32,8 +32,6 @@ set(ALL_FILES
     ${src}
 )
 
-include_directories(${CMAKE_SOURCE_DIR}/external/fs)
-include_directories(${CMAKE_SOURCE_DIR}/external/ds)
-include_directories(${CMAKE_SOURCE_DIR}/external/freetype/include)
+add_library(${PROJECT_NAME} STATIC ${ALL_FILES})
 
-add_library(gtxt ${ALL_FILES})
+target_include_directories(${PROJECT_NAME} PRIVATE external/fs external/ds external/freetype/include)
