@@ -50,7 +50,7 @@ static struct glyph_cache* C;
 static uint32_t* (*CHAR_GEN)(const char* str, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout);
 static void      (*GET_UF_LAYOUT)(int unicode, int font, struct gtxt_glyph_layout* layout);
 
-static inline 
+static inline bool
 _is_color_same(const struct gtxt_glyph_color* c0, const struct gtxt_glyph_color* c1) {
     if (c0->mode_type != c1->mode_type) {
         return false;
