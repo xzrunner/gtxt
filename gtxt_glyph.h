@@ -57,7 +57,8 @@ struct gtxt_glyph_style {
 void gtxt_glyph_create(int cap_bitmap, int cap_layout,
 					   uint32_t* (*char_gen)(const char* str, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout),
 					   void (*get_uf_layout)(int unicode, int font, struct gtxt_glyph_layout* layout));
-void gtxt_glyph_release();
+void gtxt_glyph_release(void);
+int gtxt_glyph_ready(void);
 
 struct gtxt_glyph_layout* gtxt_glyph_get_layout(int unicode, float line_x, const struct gtxt_glyph_style*);
 

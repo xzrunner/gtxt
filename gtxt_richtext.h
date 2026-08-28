@@ -51,17 +51,23 @@ struct gtxt_richtext_style {
 	void* ext_sym_ud;
 };
 
-void gtxt_richtext_release();
+void gtxt_richtext_release(void);
+void gtxt_richtext_reset_fonts(void);
 
 void gtxt_richtext_add_color(const char* key, unsigned int val);
 
-void gtxt_richtext_add_font(const char* name);
+int gtxt_richtext_add_font(const char* name);
+int gtxt_richtext_add_fonts(const char* const* names, int count);
+int gtxt_richtext_add_font_alias(const char* name, int index);
+int gtxt_richtext_find_font(const char* name);
+int gtxt_richtext_get_font_slot_count(void);
 
 void gtxt_richtext_ext_sym_cb_init(void* (*create)(const char* str),
 								   void (*release)(void* ext_sym),
 								   void (*size)(void* ext_sym, int* width, int* height),
 								   void (*render)(void* ext_sym, float x, float y, void* ud),
 								   bool (*query)(void* ext_sym, float x, float y, float w, float h, int qx, int qy, void* ud));
+void gtxt_ext_sym_release(void* ext_sym);
 void gtxt_ext_sym_get_size(void* ext_sym, int* width, int* height);
 void gtxt_ext_sym_render(void* ext_sym, float x, float y, void* ud);
 bool gtxt_ext_sym_query(void* ext_sym, float x, float y, float w, float h, int qx, int qy, void* ud);

@@ -10,6 +10,7 @@ extern "C"
 #include "gtxt_glyph.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 
 enum gtxt_hori_align {
 	HA_LEFT		= 0,
@@ -51,9 +52,14 @@ struct gtxt_label_style {
 struct gtxt_draw_style;
 struct gtxt_glyph_style;
 
-void gtxt_label_cb_init(void (*draw_glyph)(int unicode, float x, float y, float w, float h, float start_x, const struct gtxt_glyph_style* gs, const struct gtxt_draw_style* ds, void* ud));
+typedef void (*gtxt_draw_glyph_fn)(int unicode, float x, float y, float w, float h, float start_x, const struct gtxt_glyph_style* gs, const struct gtxt_draw_style* ds, void* ud);
+
+void gtxt_label_cb_init(gtxt_draw_glyph_fn draw_glyph);
+gtxt_draw_glyph_fn gtxt_label_cb_get(void);
 
 void gtxt_label_draw(const char* str, const struct gtxt_label_style* style, void* ud);
+void gtxt_label_draw_n(const char* str, size_t nbytes, const struct gtxt_label_style* style,
+                       gtxt_draw_glyph_fn draw_glyph, void* ud);
 void gtxt_label_draw_richtext(const char* str, const struct gtxt_label_style* style, int time, void* ud);
 
 // void gtxt_label_reload(const char* str, const struct gtxt_label_style* style);

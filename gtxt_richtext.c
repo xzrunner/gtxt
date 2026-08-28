@@ -1,6 +1,7 @@
 #include "gtxt_richtext.h"
 #include "gtxt_label.h"
 #include "gtxt_util.h"
+#include "gtxt_freetype.h"
 
 #include <string.h>
 #include <assert.h>
@@ -55,8 +56,12 @@ struct richtext_state {
 	int disable_num;
 };
 
-static char FONTS[MAX_FONT_COUNT][128];
-static int FONT_SIZE = 0;
+#define MAX_FONT_NAMES (MAX_FONT_COUNT * 2)
+
+static char FONT_NAMES[MAX_FONT_NAMES][128];
+static int FONT_INDICES[MAX_FONT_NAMES];
+static int FONT_NAME_COUNT = 0;
+static int FONT_SLOT_COUNT = 0;
 
 static void* (*EXT_SYM_CREATE)(const char* str);
 static void (*EXT_SYM_RELEASE)(void* ext_sym);
@@ -99,9 +104,23 @@ static struct color_map COLOR[MAX_COLOR_COUNT] = {
 static int COLOR_SIZE = DEFAULT_COLOR_SIZE;
 
 void
-gtxt_richtext_release() {
-	FONT_SIZE = 0;
+gtxt_richtext_reset_fonts(void) {
+	FONT_NAME_COUNT = 0;
+	FONT_SLOT_COUNT = 0;
+	memset(FONT_NAMES, 0, sizeof(FONT_NAMES));
+	memset(FONT_INDICES, 0, sizeof(FONT_INDICES));
+}
+
+void
+gtxt_richtext_release(void) {
+	gtxt_ft_release();
+	gtxt_richtext_reset_fonts();
 	COLOR_SIZE = DEFAULT_COLOR_SIZE;
+	EXT_SYM_CREATE = NULL;
+	EXT_SYM_RELEASE = NULL;
+	EXT_SYM_SIZE = NULL;
+	EXT_SYM_RENDER = NULL;
+	EXT_SYM_QUERY = NULL;
 }
 
 void
@@ -137,6 +156,11 @@ _str_head_equal(const char* str, const char* substr) {
 }
 
 static inline bool
+_token_equal(const char* token, const char* expected) {
+	return strcmp(token, expected) == 0;
+}
+
+static inline bool
 _parser_color(const char* token, struct gtxt_glyph_color* col, const char** end_ptr) {
 	if (token[0] == '#') {
 		col->mode_type = 0;
@@ -157,16 +181,87 @@ _parser_color(const char* token, struct gtxt_glyph_color* col, const char** end_
 	return false;
 }
 
-void
-gtxt_richtext_add_font(const char* name) {
-	if (FONT_SIZE >= MAX_FONT_COUNT) {
-		printf("gtxt_richtext_add_font FONT_SIZE over %d !\n", MAX_FONT_COUNT);
-		return;
+int
+gtxt_richtext_find_font(const char* name) {
+	if (!name) {
+		return -1;
+	}
+	for (int i = 0; i < FONT_NAME_COUNT; ++i) {
+		if (strcmp(FONT_NAMES[i], name) == 0) {
+			return FONT_INDICES[i];
+		}
+	}
+	return -1;
+}
+
+static int
+_valid_font_name(const char* name) {
+	return name && name[0] != '\0' && strlen(name) <= 127;
+}
+
+int
+gtxt_richtext_add_fonts(const char* const* names, int count) {
+	if (!names || count <= 0 ||
+		count > MAX_FONT_NAMES - FONT_NAME_COUNT ||
+		count > MAX_FONT_COUNT - FONT_SLOT_COUNT) {
+		return -1;
 	}
 
-	strcpy(&FONTS[FONT_SIZE][0], name);
-	FONTS[FONT_SIZE][strlen(name) + 1] = 0;
-	++FONT_SIZE;
+	for (int i = 0; i < count; ++i) {
+		if (!_valid_font_name(names[i]) || gtxt_richtext_find_font(names[i]) >= 0) {
+			return -1;
+		}
+		for (int j = 0; j < i; ++j) {
+			if (strcmp(names[i], names[j]) == 0) {
+				return -1;
+			}
+		}
+	}
+
+	for (int i = 0; i < count; ++i) {
+		strcpy(FONT_NAMES[FONT_NAME_COUNT + i], names[i]);
+		FONT_INDICES[FONT_NAME_COUNT + i] = FONT_SLOT_COUNT + i;
+	}
+	FONT_NAME_COUNT += count;
+	FONT_SLOT_COUNT += count;
+	return 0;
+}
+
+int
+gtxt_richtext_add_font(const char* name) {
+	if (!_valid_font_name(name)) {
+		return -1;
+	}
+	if (gtxt_richtext_find_font(name) >= 0) {
+		return 0;
+	}
+	return gtxt_richtext_add_fonts(&name, 1);
+}
+
+int
+gtxt_richtext_add_font_alias(const char* name, int index) {
+	if (!_valid_font_name(name) || index < 0 || index >= FONT_SLOT_COUNT) {
+		return -1;
+	}
+	const int existing = gtxt_richtext_find_font(name);
+	if (existing >= 0) {
+		return existing == index ? 0 : -1;
+	}
+	if (FONT_NAME_COUNT >= MAX_FONT_NAMES) {
+		printf("gtxt_richtext_add_font_alias FONT_SIZE over %d !\n", MAX_FONT_NAMES);
+		return -1;
+	}
+
+	strncpy(FONT_NAMES[FONT_NAME_COUNT], name, 127);
+	FONT_NAMES[FONT_NAME_COUNT][127] = 0;
+	FONT_INDICES[FONT_NAME_COUNT] = index;
+	++FONT_NAME_COUNT;
+	return 0;
+}
+
+int
+gtxt_richtext_get_font_slot_count(void) {
+	return FONT_SLOT_COUNT;
 }
 
 void
@@ -183,28 +278,43 @@ gtxt_richtext_ext_sym_cb_init(void* (*create)(const char* str),
 }
 
 void
+gtxt_ext_sym_release(void* ext_sym) {
+	if (ext_sym && EXT_SYM_RELEASE) {
+		EXT_SYM_RELEASE(ext_sym);
+	}
+}
+
+void
 gtxt_ext_sym_get_size(void* ext_sym, int* width, int* height) {
+	if (width) {
+		*width = 0;
+	}
+	if (height) {
+		*height = 0;
+	}
+	if (!ext_sym || !width || !height || !EXT_SYM_SIZE) {
+		return;
+	}
 	EXT_SYM_SIZE(ext_sym, width, height);
 }
 
 void
 gtxt_ext_sym_render(void* ext_sym, float x, float y, void* ud) {
-	EXT_SYM_RENDER(ext_sym, x, y, ud);
+	if (ext_sym && EXT_SYM_RENDER) {
+		EXT_SYM_RENDER(ext_sym, x, y, ud);
+	}
 }
 
 bool
 gtxt_ext_sym_query(void* ext_sym, float x, float y, float w, float h, int qx, int qy, void* ud) {
-	return EXT_SYM_QUERY(ext_sym, x, y, w, h, qx, qy, ud);
+	return ext_sym && EXT_SYM_QUERY
+		? EXT_SYM_QUERY(ext_sym, x, y, w, h, qx, qy, ud)
+		: false;
 }
 
 static inline int
 _parser_font(const char* token) {
-	for (int i = 0; i < MAX_FONT_COUNT; ++i) {
-		if (strcmp(FONTS[i], token) == 0) {
-			return i;
-		}
-	}
-	return -1;
+	return gtxt_richtext_find_font(token);
 }
 
 static inline void
@@ -308,8 +418,10 @@ _parser_decoration(const char* token, struct gtxt_decoration* d) {
 }
 
 #define STATE_POP(buf, layer, ret) { \
+	if ((layer) <= 1) { \
+		return false; \
+	} \
 	--(layer); \
-	assert((layer) >= 0); \
 	if ((layer) <= MAX_LAYER_COUNT) { \
 	(ret) = (buf)[(layer) - 1]; \
 	} else { \
@@ -328,7 +440,7 @@ _parser_token(const char* token, struct richtext_state* rs) {
 		} else {
 			return false;
 		}
-	} else if (_str_head_equal(token, "/font")) {
+	} else if (_token_equal(token, "/font")) {
 		STATE_POP(rs->font, rs->font_layer, rs->s.gs.font);
 		return true;
 	}
@@ -341,7 +453,7 @@ _parser_token(const char* token, struct richtext_state* rs) {
 		} else {
 			return false;
 		}
-	} else if (_str_head_equal(token, "/size")) {
+	} else if (_token_equal(token, "/size")) {
 		STATE_POP(rs->size, rs->size_layer, rs->s.gs.font_size);
 		return true;
 	}
@@ -357,7 +469,7 @@ _parser_token(const char* token, struct richtext_state* rs) {
 		} else {
 			return false;
 		}
-	} else if (_str_head_equal(token, "/color")) {
+	} else if (_token_equal(token, "/color")) {
 		STATE_POP(rs->color, rs->color_layer, rs->s.gs.font_color);
 		return true;
 	}
@@ -379,9 +491,11 @@ _parser_token(const char* token, struct richtext_state* rs) {
 			++rs->edge_layer;
 		}
 		return true;
-	} else if (_str_head_equal(token, "/edge")) {
+	} else if (_token_equal(token, "/edge")) {
+		if (rs->edge_layer <= 0) {
+			return false;
+		}
 		--rs->edge_layer;
-		assert(rs->edge_layer >= 0);
 		if (rs->edge_layer == 0) {
 			rs->s.gs.edge = false;
 			rs->s.gs.edge_size = 0;
@@ -400,11 +514,24 @@ _parser_token(const char* token, struct richtext_state* rs) {
 	}
 	// file
 	else if (_str_head_equal(token, "file")) {
-		assert(!rs->s.ext_sym_ud);
-		rs->s.ext_sym_ud = EXT_SYM_CREATE(_skip_delimiter_and_equal(&token[strlen("file")]));
+		if (rs->s.ext_sym_ud || !EXT_SYM_CREATE || !EXT_SYM_RELEASE) {
+			return false;
+		}
+		const char* name = _skip_delimiter_and_equal(&token[strlen("file")]);
+		if (!name || name[0] == '\0') {
+			return false;
+		}
+		void* ext_sym = EXT_SYM_CREATE(name);
+		if (!ext_sym) {
+			return false;
+		}
+		rs->s.ext_sym_ud = ext_sym;
 		return true;
-	} else if (_str_head_equal(token, "/file")) {
-		EXT_SYM_RELEASE(rs->s.ext_sym_ud);
+	} else if (_token_equal(token, "/file")) {
+		if (!rs->s.ext_sym_ud) {
+			return false;
+		}
+		gtxt_ext_sym_release(rs->s.ext_sym_ud);
 		rs->s.ext_sym_ud = NULL;
 		return true;
 	}
@@ -412,7 +539,7 @@ _parser_token(const char* token, struct richtext_state* rs) {
 	else if (_str_head_equal(token, "dynamic")) {
 		_parser_dynamic(token, &rs->dds);
 		return true;
-	} else if (_str_head_equal(token, "/dynamic")) {
+	} else if (_token_equal(token, "/dynamic")) {
 		rs->dds.enable = false;
 		return true;
 	}
@@ -420,7 +547,7 @@ _parser_token(const char* token, struct richtext_state* rs) {
 	else if (_str_head_equal(token, "decoration=")) {
 		_parser_decoration(&token[strlen("decoration=")], &rs->s.ds.decoration);
 		return true;
-	} else if (_str_head_equal(token, "/decoration")) {
+	} else if (_token_equal(token, "/decoration")) {
 		rs->s.ds.decoration.type = GRDT_NULL;
 		rs->s.ds.pos_type = GRPT_NULL;
 		rs->s.ds.row_h = 0;
@@ -502,8 +629,9 @@ _parser_plain_end(const char* str, int len, int* ptr, int disable_num) {
 		++end;
 	}
 	if (str[end] == '>') {
-		int num = strtol(&str[begin], (char**)NULL, 10);
-		if (num == disable_num) {
+		char* end_ptr = NULL;
+		int num = strtol(&str[begin], &end_ptr, 10);
+		if (end_ptr == &str[end] && num == disable_num) {
 			*ptr = end + 1;
 			return true;
 		} else {
@@ -517,6 +645,9 @@ _parser_plain_end(const char* str, int len, int* ptr, int disable_num) {
 void
 gtxt_richtext_parser(const char* str, const struct gtxt_label_style* style,
 					 int (*cb)(const char* str, float line_x, struct gtxt_richtext_style* style, void* ud), void* ud) {
+	if (!str || !style || !cb) {
+		return;
+	}
 	struct richtext_state rs;
 	_init_state(&rs, style);
 
@@ -550,6 +681,7 @@ gtxt_richtext_parser(const char* str, const struct gtxt_label_style* style,
 			i += n;
 		}
 	}
+	gtxt_ext_sym_release(rs.s.ext_sym_ud);
 }
 
 static inline float
@@ -561,6 +693,9 @@ _cal_dynamic_val(struct dynamic_value* val, int time, int glyph) {
 void
 gtxt_richtext_parser_dynamic(const char* str, const struct gtxt_label_style* style, int time,
 							 int (*cb)(const char* str, struct gtxt_richtext_style* style, void* ud), void* ud) {
+	if (!str || !style || !cb) {
+		return;
+	}
 	struct richtext_state rs;
 	_init_state(&rs, style);
 
@@ -607,6 +742,7 @@ gtxt_richtext_parser_dynamic(const char* str, const struct gtxt_label_style* sty
 			i += n;
 		}
 	}
+	gtxt_ext_sym_release(rs.s.ext_sym_ud);
 }
 
 int

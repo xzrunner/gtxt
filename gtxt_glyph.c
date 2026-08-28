@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <limits.h>
+#include <math.h>
 
 struct glyph_key {
 	int unicode;
@@ -156,30 +158,62 @@ _equal_func(void* key0, void* key1) {
 	}
 }
 
+int
+gtxt_glyph_ready(void) {
+	return C && C->hash ? 1 : 0;
+}
+
 void
 gtxt_glyph_create(int cap_bitmap, int cap_layout,
 				  uint32_t* (*char_gen)(const char* str, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout),
 				  void (*get_uf_layout)(int unicode, int font, struct gtxt_glyph_layout* layout)) {
-	CHAR_GEN = char_gen;
-	GET_UF_LAYOUT = get_uf_layout;
-
-	size_t bitmap_sz = sizeof(struct glyph_bitmap) * cap_bitmap;
-	size_t layout_sz = sizeof(struct glyph) * cap_layout;
-	size_t sz = sizeof(struct glyph_cache) + bitmap_sz + layout_sz;
-	C = (struct glyph_cache*)malloc(sz);
-	if (!C) {
+	if (gtxt_glyph_ready()) {
 		return;
 	}
-	memset(C, 0, sz);
+	if (C) {
+		gtxt_glyph_release();
+	}
+	if (cap_bitmap <= 0 || cap_layout <= 0 || cap_layout > INT_MAX / 2) {
+		return;
+	}
+	if ((size_t)cap_bitmap > (SIZE_MAX - sizeof(struct glyph_cache)) / sizeof(struct glyph_bitmap)) {
+		return;
+	}
 
-	C->hash = ds_hash_create(cap_layout, cap_layout * 2, 0.5f, _hash_func, _equal_func);
+	size_t bitmap_sz = sizeof(struct glyph_bitmap) * cap_bitmap;
+	if ((size_t)cap_layout > (SIZE_MAX - sizeof(struct glyph_cache) - bitmap_sz) / sizeof(struct glyph)) {
+		return;
+	}
+	size_t layout_sz = sizeof(struct glyph) * cap_layout;
+	size_t sz = sizeof(struct glyph_cache) + bitmap_sz + layout_sz;
+	struct glyph_cache* next = (struct glyph_cache*)malloc(sz);
+	if (!next) {
+		return;
+	}
+	memset(next, 0, sz);
 
-	DS_FREELIST_CREATE(glyph_bitmap, C->bmp_buf, cap_bitmap, C + 1);
-	DS_FREELIST_CREATE(glyph, C->gly_buf, cap_layout, (intptr_t)C->bmp_buf.freelist + bitmap_sz);
+	next->hash = ds_hash_create(cap_layout, cap_layout * 2, 0.5f, _hash_func, _equal_func);
+	if (!next->hash) {
+		free(next);
+		return;
+	}
+
+	unsigned char* storage = (unsigned char*)(next + 1);
+	DS_FREELIST_CREATE(glyph_bitmap, next->bmp_buf, cap_bitmap, storage);
+	DS_FREELIST_CREATE(glyph, next->gly_buf, cap_layout, storage + bitmap_sz);
+
+	CHAR_GEN = char_gen;
+	GET_UF_LAYOUT = get_uf_layout;
+	C = next;
 }
 
 void
-gtxt_glyph_release() {
+gtxt_glyph_release(void) {
+	if (!C) {
+		CHAR_GEN = NULL;
+		GET_UF_LAYOUT = NULL;
+		return;
+	}
 	struct glyph_bitmap* bmp = C->bmp_buf.freelist;
 	while (bmp) {
 		free(bmp->buf); bmp->buf = NULL;
@@ -187,13 +221,19 @@ gtxt_glyph_release() {
 		bmp = bmp->next;
 	}
 	bmp = C->bmp_buf.head;
-	while (bmp != C->bmp_buf.tail) {
+	while (bmp) {
 		free(bmp->buf); bmp->buf = NULL;
 		bmp->sz = 0;
 		bmp = bmp->next;
 	}
 
+	if (C->hash) {
+		ds_hash_release(C->hash);
+		C->hash = NULL;
+	}
 	free(C); C = NULL;
+	CHAR_GEN = NULL;
+	GET_UF_LAYOUT = NULL;
 }
 
 static inline struct glyph*
@@ -227,7 +267,7 @@ _new_node() {
 
 struct gtxt_glyph_layout*
 gtxt_glyph_get_layout(int unicode, float line_x, const struct gtxt_glyph_style* style) {
-	if (!C) {
+	if (!gtxt_glyph_ready() || !style) {
 		return NULL;
 	}
 
@@ -241,12 +281,16 @@ gtxt_glyph_get_layout(int unicode, float line_x, const struct gtxt_glyph_style* 
 		return &g->layout;
 	} else {
 		g = _new_node();
+		if (!g) {
+			return NULL;
+		}
+		memset(&g->layout, 0, sizeof(g->layout));
 
 		int ft_count = gtxt_ft_get_font_cout();
-		if (style->font < ft_count) {
+		if (style->font >= 0 && style->font < ft_count) {
 			gtxt_ft_get_layout(unicode, line_x, style, &g->layout);
-		} else {
-			GET_UF_LAYOUT(unicode, ft_count - style->font, &g->layout);
+		} else if (style->font >= ft_count && GET_UF_LAYOUT) {
+			GET_UF_LAYOUT(unicode, style->font - ft_count, &g->layout);
 		}
 
 		g->key = key;
@@ -256,9 +300,58 @@ gtxt_glyph_get_layout(int unicode, float line_x, const struct gtxt_glyph_style* 
 	}
 }
 
+static bool
+_bitmap_byte_size(const struct gtxt_glyph_layout* layout, size_t* size) {
+	if (!layout || !size) {
+		return false;
+	}
+	const double width = (double)layout->sizer.width;
+	const double height = (double)layout->sizer.height;
+	if (!isfinite(width) || !isfinite(height) ||
+		!(width > 0.0) || !(height > 0.0) ||
+		floor(width) != width || floor(height) != height) {
+		return false;
+	}
+	const double bytes = width * height * (double)sizeof(uint32_t);
+	if (!(bytes > 0.0) || bytes >= (double)SIZE_MAX) {
+		return false;
+	}
+	*size = (size_t)bytes;
+	return *size > 0;
+}
+
+static bool
+_store_bitmap(struct glyph_bitmap* bitmap, const uint32_t* source,
+			  const struct gtxt_glyph_layout* layout) {
+	if (!bitmap || !source) {
+		return false;
+	}
+
+	size_t size = 0;
+	if (!_bitmap_byte_size(layout, &size)) {
+		return false;
+	}
+	if (!bitmap->buf || size > bitmap->sz) {
+		uint32_t* next = (uint32_t*)malloc(size);
+		if (!next) {
+			return false;
+		}
+		free(bitmap->buf);
+		bitmap->buf = next;
+		bitmap->sz = size;
+	}
+
+	memcpy(bitmap->buf, source, size);
+	bitmap->valid = true;
+	return true;
+}
+
 uint32_t*
 gtxt_glyph_get_bitmap(int unicode, float line_x, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) {
-	if (!C) {
+	if (layout) {
+		memset(layout, 0, sizeof(*layout));
+	}
+	if (!gtxt_glyph_ready() || !style || !layout) {
 		return NULL;
 	}
 
@@ -273,6 +366,10 @@ gtxt_glyph_get_bitmap(int unicode, float line_x, const struct gtxt_glyph_style* 
 		*layout = g->layout;
 	} else {
 		g = _new_node();
+		if (!g) {
+			return NULL;
+		}
+		memset(&g->layout, 0, sizeof(g->layout));
 		g->key = key;
 		ds_hash_insert(C->hash, &g->key, g, true);
 	}
@@ -313,21 +410,16 @@ gtxt_glyph_get_bitmap(int unicode, float line_x, const struct gtxt_glyph_style* 
 	}
 	if (!buf) {
 		ret_buf = NULL;
-	} else {
+	} else if (_store_bitmap(g->bitmap, buf, &g->layout)) {
 		*layout = g->layout;
-		size_t sz = (size_t)(g->layout.sizer.width * g->layout.sizer.height * sizeof(uint32_t));
-		if (sz > g->bitmap->sz) {
-			free(g->bitmap->buf);
-			g->bitmap->buf = malloc(sz);
-			g->bitmap->sz = sz;
-		}
-
-		memcpy(g->bitmap->buf, buf, sz);
-		g->bitmap->valid = true;
-
 		ret_buf = g->bitmap->buf;
+	} else {
+		ret_buf = NULL;
 	}
 
 	DS_FREELIST_MOVE_NODE_TO_TAIL(C->bmp_buf, g->bitmap);
+	if (!ret_buf) {
+		memset(layout, 0, sizeof(*layout));
+	}
 	return ret_buf;
 }

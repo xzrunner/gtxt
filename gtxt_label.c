@@ -7,26 +7,36 @@
 #include <ds_array.h>
 
 #include <string.h>
+#include <stddef.h>
 #include <assert.h>
 
 static struct ds_array* UNICODE_BUF;
 
-void (*DRAW_GLYPH)(int unicode, float x, float y, float w, float h, float start_x, const struct gtxt_glyph_style* gs, const struct gtxt_draw_style* ds, void* ud);
+static gtxt_draw_glyph_fn DRAW_GLYPH;
 
 void
-gtxt_label_cb_init(void (*draw_glyph)(int unicode, float x, float y, float w, float h, float start_x, const struct gtxt_glyph_style* gs, const struct gtxt_draw_style* ds, void* ud)) {
+gtxt_label_cb_init(gtxt_draw_glyph_fn draw_glyph) {
 	DRAW_GLYPH = draw_glyph;
+}
+
+gtxt_draw_glyph_fn
+gtxt_label_cb_get(void) {
+	return DRAW_GLYPH;
 }
 
 struct draw_params {
 	const struct gtxt_label_style* style;
 	void* ud;
+	gtxt_draw_glyph_fn draw_glyph;
 };
 
 static inline void
 _draw_glyph_cb(int unicode, float x, float y, float w, float h, float row_y, float start_x, void* ud) {
 	struct draw_params* params = (struct draw_params*)ud;
-	DRAW_GLYPH(unicode, x, y, w, h, start_x, &params->style->gs, NULL, params->ud);
+	gtxt_draw_glyph_fn fn = params->draw_glyph ? params->draw_glyph : DRAW_GLYPH;
+	if (fn) {
+		fn(unicode, x, y, w, h, start_x, &params->style->gs, NULL, params->ud);
+	}
 }
 
 struct layout_pos {
@@ -57,7 +67,9 @@ _draw_unicode(const char* str, int unicode_len, struct gtxt_richtext_style* styl
 	} else if (style->ds.pos_type == GRPT_MIDDLE && str[unicode_len] == '<') {
 		style->ds.pos_type = GRPT_END;
 	}
-	DRAW_GLYPH(pos->unicode, pos->x, pos->y, pos->w, pos->h, 0, &style->gs, &style->ds, params->ud);
+	if (DRAW_GLYPH) {
+		DRAW_GLYPH(pos->unicode, pos->x, pos->y, pos->w, pos->h, 0, &style->gs, &style->ds, params->ud);
+	}
 }
 
 static inline int
@@ -90,30 +102,83 @@ _draw_richtext_glyph_cb(const char* str, struct gtxt_richtext_style* style, void
 	return len;
 }
 
-void
-gtxt_label_draw(const char* str, const struct gtxt_label_style* style, void* ud) {
+static bool
+_ensure_unicode_buf(void) {
 	if (!UNICODE_BUF) {
 		UNICODE_BUF = ds_array_create(128, sizeof(int));
+		if (!UNICODE_BUF) {
+			return false;
+		}
+		if (!ds_array_data(UNICODE_BUF)) {
+			ds_array_release(UNICODE_BUF);
+			UNICODE_BUF = NULL;
+			return false;
+		}
 	}
+	return true;
+}
 
-	int str_len = strlen(str);
-	for (int i = 0; i < str_len; ) {
+static bool
+_fill_unicodes_n(const char* str, size_t nbytes) {
+	if (!_ensure_unicode_buf()) {
+		return false;
+	}
+	ds_array_clear(UNICODE_BUF);
+	if (!str || nbytes == 0) {
+		return true;
+	}
+	size_t i = 0;
+	while (i < nbytes) {
 		int len = gtxt_unicode_len(str[i]);
+		if (len < 1) {
+			len = 1;
+		}
+		if (i + (size_t)len > nbytes) {
+			break;
+		}
 		int unicode = gtxt_get_unicode(str + i, len);
 		ds_array_add(UNICODE_BUF, &unicode);
-		i += len;
+		i += (size_t)len;
 	}
+	return true;
+}
 
+static void
+_draw_filled(const struct gtxt_label_style* style, gtxt_draw_glyph_fn draw_glyph, void* ud) {
+	if (!style || !UNICODE_BUF) {
+		return;
+	}
 	struct draw_params params;
 	params.style = style;
 	params.ud = ud;
+	params.draw_glyph = draw_glyph;
 
 	gtxt_layout_begin(style);
-	gtxt_layout_multi(UNICODE_BUF);					// layout
-	gtxt_layout_traverse(_draw_glyph_cb, &params);	// draw
+	gtxt_layout_multi(UNICODE_BUF);
+	gtxt_layout_traverse(_draw_glyph_cb, &params);
 	gtxt_layout_end();
 
 	ds_array_clear(UNICODE_BUF);
+}
+
+void
+gtxt_label_draw(const char* str, const struct gtxt_label_style* style, void* ud) {
+	if (!str || !style) {
+		return;
+	}
+	if (!_fill_unicodes_n(str, strlen(str))) {
+		return;
+	}
+	_draw_filled(style, NULL, ud);
+}
+
+void
+gtxt_label_draw_n(const char* str, size_t nbytes, const struct gtxt_label_style* style,
+                  gtxt_draw_glyph_fn draw_glyph, void* ud) {
+	if (!style || !_fill_unicodes_n(str, nbytes)) {
+		return;
+	}
+	_draw_filled(style, draw_glyph, ud);
 }
 
 static inline int
@@ -175,8 +240,8 @@ _get_layout_result_cb(int unicode, float x, float y, float w, float h, float row
 
 void
 gtxt_label_draw_richtext(const char* str, const struct gtxt_label_style* style, int time, void* ud) {
-	if (!UNICODE_BUF) {
-		UNICODE_BUF = ds_array_create(128, sizeof(int));
+	if (!str || !style || !_ensure_unicode_buf()) {
+		return;
 	}
 
 	gtxt_layout_begin(style);
@@ -264,7 +329,8 @@ _query_richtext_glyph_cb(const char* str, float line_x, struct gtxt_richtext_sty
 		bool find = gtxt_ext_sym_query(style->ext_sym_ud, pos->x, pos->y, pos->w, pos->h, params->qx, params->qy, params->ud);
 		if (find) {
 			params->ret_ext_sym = style->ext_sym_ud;
-			return 0;
+			style->ext_sym_ud = NULL;
+			return -1;
 		}
 	} else {
 		++params->idx;
@@ -275,8 +341,8 @@ _query_richtext_glyph_cb(const char* str, float line_x, struct gtxt_richtext_sty
 
 void*
 gtxt_label_point_query(const char* str, const struct gtxt_label_style* style, int x, int y, void* ud) {
-	if (!UNICODE_BUF) {
-		UNICODE_BUF = ds_array_create(128, sizeof(int));
+	if (!str || !style || !_ensure_unicode_buf()) {
+		return NULL;
 	}
 
 	gtxt_layout_begin(style);
@@ -311,6 +377,15 @@ gtxt_label_point_query(const char* str, const struct gtxt_label_style* style, in
 
 void
 gtxt_get_label_size(const char* str, const struct gtxt_label_style* style, float* width, float* height) {
+	if (width) {
+		*width = 0;
+	}
+	if (height) {
+		*height = 0;
+	}
+	if (!str || !style || !width || !height) {
+		return;
+	}
 	gtxt_layout_begin(style);
 	gtxt_richtext_parser(str, style, _layout_richtext_glyph_cb, NULL);
 	gtxt_get_layout_size(width, height);

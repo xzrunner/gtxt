@@ -11,12 +11,16 @@
 #include FT_STROKER_H
 
 #include <assert.h>
+#include <limits.h>
 #include <math.h>
+#include <stdlib.h>
+#include <string.h>
 
 struct font {
 	FT_Library library;
 	FT_Face face;
 	unsigned char* buf;
+	char* filepath;
 };
 
 #define MAX_FONTS 8
@@ -41,6 +45,7 @@ struct span {
 struct spans {
 	struct span items[MAX_SPAN];
 	int sz;
+	int overflow;
 };
 
 static struct spans* IN_SPANS = NULL;
@@ -48,76 +53,240 @@ static struct spans* OUT_SPANS = NULL;
 
 static union gtxt_color* BUF;
 static size_t BUF_SZ;
+static int BUF_VALID;
 
-void
-gtxt_ft_create() {
-	FT = (struct freetype*)malloc(sizeof(*FT));
-	memset(FT, 0, sizeof(*FT));
+static int SOLID_WHITE = 0;
 
-	IN_SPANS = (struct spans*)malloc(sizeof(struct spans));
-	memset(IN_SPANS, 0, sizeof(*IN_SPANS));
-	OUT_SPANS = (struct spans*)malloc(sizeof(struct spans));
-	memset(OUT_SPANS, 0, sizeof(*OUT_SPANS));
+static void
+_font_cleanup(FT_Library library, FT_Face face, unsigned char* buf, struct fs_file* file) {
+	if (file) {
+		fs_close(file);
+	}
+	if (face) {
+		FT_Done_Face(face);
+	}
+	if (library) {
+		FT_Done_FreeType(library);
+	}
+	free(buf);
+}
+
+static void
+_font_dispose(struct font* f) {
+	if (!f) {
+		return;
+	}
+	if (f->face) {
+		FT_Done_Face(f->face);
+	}
+	if (f->library) {
+		FT_Done_FreeType(f->library);
+	}
+	free(f->buf);
+	free(f->filepath);
+	memset(f, 0, sizeof(*f));
+}
+
+int
+gtxt_ft_ready(void) {
+	return FT && IN_SPANS && OUT_SPANS ? 1 : 0;
 }
 
 void
-gtxt_ft_release() {
-	for (int i = 0; i < FT->count; ++i) {
-		struct font* f = &FT->fonts[i];
-		FT_Done_Face(f->face);
-		FT_Done_FreeType(f->library);
-		free(f->buf);
+gtxt_ft_create(void) {
+	if (gtxt_ft_ready()) {
+		return;
 	}
-	free(FT); FT = NULL;
+	if (FT || IN_SPANS || OUT_SPANS) {
+		gtxt_ft_release();
+	}
+
+	struct freetype* next_ft = (struct freetype*)calloc(1, sizeof(*next_ft));
+	struct spans* next_in = (struct spans*)calloc(1, sizeof(*next_in));
+	struct spans* next_out = (struct spans*)calloc(1, sizeof(*next_out));
+	if (!next_ft || !next_in || !next_out) {
+		free(next_ft);
+		free(next_in);
+		free(next_out);
+		return;
+	}
+
+	FT = next_ft;
+	IN_SPANS = next_in;
+	OUT_SPANS = next_out;
+}
+
+void
+gtxt_ft_release(void) {
+	if (FT) {
+		for (int i = 0; i < MAX_FONTS; ++i) {
+			_font_dispose(&FT->fonts[i]);
+		}
+		free(FT);
+		FT = NULL;
+	}
 	free(IN_SPANS); IN_SPANS = NULL;
 	free(OUT_SPANS); OUT_SPANS = NULL;
 	free(BUF); BUF = NULL;
 	BUF_SZ = 0;
+	BUF_VALID = 0;
+	SOLID_WHITE = 0;
+	gtxt_richtext_reset_fonts();
+}
+
+static int
+_ft_bind_file(struct font* f, const char* filepath) {
+	FT_Library library = NULL;
+	FT_Face face = NULL;
+	unsigned char* buf = NULL;
+	char* filepath_copy = NULL;
+	struct fs_file* file = NULL;
+	if (!f || !filepath || filepath[0] == '\0') {
+		return 0;
+	}
+
+	if (FT_Init_FreeType(&library)) {
+		return 0;
+	}
+
+	file = fs_open(filepath, "rb");
+	if (!file) {
+		_font_cleanup(library, face, buf, file);
+		return 0;
+	}
+
+	size_t sz = fs_size(file);
+	if (sz == 0 || sz > (size_t)LONG_MAX) {
+		_font_cleanup(library, face, buf, file);
+		return 0;
+	}
+	buf = (unsigned char*)malloc(sz);
+	if (!buf) {
+		_font_cleanup(library, face, buf, file);
+		return 0;
+	}
+
+	if (fs_read(file, buf, sz) != sz) {
+		_font_cleanup(library, face, buf, file);
+		return 0;
+	}
+	fs_close(file);
+	file = NULL;
+
+	if (FT_New_Memory_Face(library, (const FT_Byte*)buf, (FT_Long)sz, 0, &face)) {
+		_font_cleanup(library, face, buf, file);
+		return 0;
+	}
+	const size_t filepath_len = strlen(filepath);
+	filepath_copy = (char*)malloc(filepath_len + 1);
+	if (!filepath_copy) {
+		_font_cleanup(library, face, buf, file);
+		return 0;
+	}
+	memcpy(filepath_copy, filepath, filepath_len + 1);
+
+	f->library = library;
+	f->face = face;
+	f->buf = buf;
+	f->filepath = filepath_copy;
+	return 1;
 }
 
 int
 gtxt_ft_add_font(const char* name, const char* filepath) {
-	if (FT->count >= MAX_FONTS) {
+	if (!gtxt_ft_ready() || !name || name[0] == '\0' || strlen(name) > 127 ||
+		!filepath || filepath[0] == '\0') {
 		return -1;
 	}
 
-	struct font* f = &FT->fonts[FT->count++];
+	const int existing = gtxt_richtext_find_font(name);
+	if (existing >= 0) {
+		if (existing >= FT->count) {
+			return -1;
+		}
+		struct font* current = &FT->fonts[existing];
+		if (!current->face) {
+			if (existing != 0 || strcmp(name, "default") != 0) {
+				return -1;
+			}
+			struct font loaded;
+			memset(&loaded, 0, sizeof(loaded));
+			if (!_ft_bind_file(&loaded, filepath)) {
+				return -1;
+			}
+			*current = loaded;
+			return existing;
+		}
+		if (!current->filepath || strcmp(current->filepath, filepath) != 0) {
+			return -1;
+		}
+		return existing;
+	}
 
-	if (FT_Init_FreeType(&f->library)) {
+	if (gtxt_richtext_get_font_slot_count() != FT->count) {
+		return -1;
+	}
+	if (FT->count > 0 && strcmp(name, "default") == 0) {
 		return -1;
 	}
 
-	struct fs_file* file = fs_open(filepath, "rb");
-	if (!file) {
-		return -1;
-	}
-	size_t sz = fs_size(file);
-	f->buf = (unsigned char*)malloc(sz);
-
-	if (fs_read(file, f->buf, sz) != sz) {
-		free(f->buf);
-		return -1;
-	}
-	fs_close(file);
-
-	if (FT_New_Memory_Face(f->library, (const FT_Byte*)f->buf, sz, 0, &f->face)) {
-		free(f->buf);
+	const int reserve_default = FT->count == 0 && strcmp(name, "default") != 0;
+	const int slots_needed = reserve_default ? 2 : 1;
+	if (FT->count > MAX_FONTS - slots_needed) {
 		return -1;
 	}
 
-	gtxt_richtext_add_font(name);
+	struct font loaded;
+	memset(&loaded, 0, sizeof(loaded));
+	if (!_ft_bind_file(&loaded, filepath)) {
+		return -1;
+	}
 
-	return FT->count - 1;
+	const char* names[2];
+	int name_count = 1;
+	if (reserve_default) {
+		names[0] = "default";
+		names[1] = name;
+		name_count = 2;
+	} else {
+		names[0] = name;
+	}
+	if (gtxt_richtext_add_fonts(names, name_count) != 0) {
+		_font_dispose(&loaded);
+		return -1;
+	}
+
+	const int index = FT->count + slots_needed - 1;
+	FT->fonts[index] = loaded;
+	FT->count += slots_needed;
+	return index;
 }
 
 int
-gtxt_ft_get_font_cout() {
-	return FT->count;
+gtxt_ft_has_glyph(int font, int unicode) {
+	if (!FT || font < 0 || font >= FT->count) {
+		return 0;
+	}
+	struct font* sfont = &FT->fonts[font];
+	if (!sfont->face) {
+		return 0;
+	}
+	return FT_Get_Char_Index(sfont->face, (FT_ULong)unicode) != 0 ? 1 : 0;
+}
+
+void
+gtxt_ft_set_solid_white(int enable) {
+	SOLID_WHITE = enable ? 1 : 0;
+}
+
+int
+gtxt_ft_get_font_cout(void) {
+	return FT ? FT->count : 0;
 }
 
 static bool
 _draw_default(struct font* font, FT_UInt gindex, float line_x, const struct gtxt_glyph_color* color, struct gtxt_glyph_layout* layout,
-			  void (*cb)(FT_Bitmap* bitmap, float line_x, const struct gtxt_glyph_color* color)) {
+			  bool (*cb)(FT_Bitmap* bitmap, float line_x, const struct gtxt_glyph_color* color)) {
 	FT_Face ft_face = font->face;
 
 	if (FT_Load_Glyph(ft_face, gindex, FT_LOAD_DEFAULT)) {
@@ -137,7 +306,10 @@ _draw_default(struct font* font, FT_UInt gindex, float line_x, const struct gtxt
 	layout->advance = (float)(gm.horiAdvance >> 6);
 
 	if (cb) {
-		FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_NORMAL, 0, 1);
+		if (FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_NORMAL, 0, 1)) {
+			FT_Done_Glyph(glyph);
+			return false;
+		}
 		FT_BitmapGlyph bitmap_glyph = (FT_BitmapGlyph)glyph;
 		FT_Bitmap* bitmap = &bitmap_glyph->bitmap;
 
@@ -145,7 +317,10 @@ _draw_default(struct font* font, FT_UInt gindex, float line_x, const struct gtxt
 		layout->sizer.height = (float)bitmap->rows;
 		layout->sizer.width = (float)bitmap->width;
 
-		cb(bitmap, line_x, color);
+		if (!cb(bitmap, line_x, color)) {
+			FT_Done_Glyph(glyph);
+			return false;
+		}
 	}
 
 	FT_Done_Glyph(glyph);
@@ -158,8 +333,14 @@ static int span_max = 0;
 static inline void
 _raster_cb(const int y, const int count, const FT_Span * const spans, void * const user) {
 	struct spans* sptr = (struct spans*)user;
+	if (!sptr || sptr->overflow) {
+		return;
+	}
 	for (int i = 0; i < count; ++i) {
-		assert(sptr->sz < MAX_SPAN);
+		if (sptr->sz >= MAX_SPAN) {
+			sptr->overflow = 1;
+			return;
+		}
 
 		if (sptr->sz > span_max) {
 			span_max = sptr->sz;
@@ -174,15 +355,18 @@ _raster_cb(const int y, const int count, const FT_Span * const spans, void * con
 	}
 }
 
-static inline void
+static inline bool
 _draw_spans(FT_Library library, FT_Outline* outline, struct spans* spans) {
+	if (!library || !outline || !spans) {
+		return false;
+	}
 	FT_Raster_Params params;
 	memset(&params, 0, sizeof(params));
 	params.flags = FT_RASTER_FLAG_AA | FT_RASTER_FLAG_DIRECT;
 	params.gray_spans = _raster_cb;
 	params.user = spans;
 
-	FT_Outline_Render(library, outline, &params);
+	return FT_Outline_Render(library, outline, &params) == 0 && !spans->overflow;
 }
 
 struct point {
@@ -214,7 +398,7 @@ _rect_height(struct rect* r) {
 static bool
 _draw_with_edge(struct font* font, FT_UInt gindex, float line_x, const struct gtxt_glyph_color* font_color,
 				float edge_size, const struct gtxt_glyph_color* edge_color, struct gtxt_glyph_layout* layout,
-				void (*cb)(int img_x, int img_y, int img_w, int img_h, float line_x, const struct gtxt_glyph_color* font_color, const struct gtxt_glyph_color* edge_color)) {
+				bool (*cb)(int img_x, int img_y, int img_w, int img_h, float line_x, const struct gtxt_glyph_color* font_color, const struct gtxt_glyph_color* edge_color)) {
 	FT_Face ft_face = font->face;
 	FT_Library ft_library = font->library;
 
@@ -225,25 +409,33 @@ _draw_with_edge(struct font* font, FT_UInt gindex, float line_x, const struct gt
 	if (ft_face->glyph->format != FT_GLYPH_FORMAT_OUTLINE) {
 		return false;
 	}
+	if (!isfinite(edge_size) || edge_size <= 0.0f || edge_size > (float)INT_MAX / 64.0f) {
+		return false;
+	}
 
 	// Render the basic glyph to a span list.
 	memset(IN_SPANS, 0, sizeof(*IN_SPANS));
-	_draw_spans(ft_library, &ft_face->glyph->outline, IN_SPANS);
+	if (!_draw_spans(ft_library, &ft_face->glyph->outline, IN_SPANS)) {
+		return false;
+	}
 
 	// Next we need the spans for the outline.
 	memset(OUT_SPANS, 0, sizeof(*OUT_SPANS));
 
 	// Set up a stroker.
-	FT_Stroker stroker;
-	FT_Stroker_New(ft_library, &stroker);
+	FT_Stroker stroker = NULL;
+	if (FT_Stroker_New(ft_library, &stroker)) {
+		return false;
+	}
 	FT_Stroker_Set(stroker,
 		(int)(edge_size * 64),
 		FT_STROKER_LINECAP_ROUND,
 		FT_STROKER_LINEJOIN_ROUND,
 		0);
 
-	FT_Glyph glyph;
+	FT_Glyph glyph = NULL;
 	if (FT_Get_Glyph(ft_face->glyph, &glyph)) {
+		FT_Stroker_Done(stroker);
 		return false;
 	}
 
@@ -251,18 +443,26 @@ _draw_with_edge(struct font* font, FT_UInt gindex, float line_x, const struct gt
 	layout->bearing_y = (float)(ft_face->glyph->metrics.horiBearingY >> 6);
 	layout->advance = (float)(ft_face->glyph->metrics.horiAdvance >> 6);
 
-	FT_Glyph_StrokeBorder(&glyph, stroker, 0, 1);
-	// Again, this needs to be an outline to work.
-	if (glyph->format == FT_GLYPH_FORMAT_OUTLINE)
-	{
-		// Render the outline spans to the span list
-		FT_Outline *o = &((FT_OutlineGlyph)glyph)->outline;
-		_draw_spans(ft_library, o, OUT_SPANS);
+	if (FT_Glyph_StrokeBorder(&glyph, stroker, 0, 1)) {
+		FT_Stroker_Done(stroker);
+		FT_Done_Glyph(glyph);
+		return false;
 	}
+	// Again, this needs to be an outline to work.
+	if (glyph->format != FT_GLYPH_FORMAT_OUTLINE) {
+		FT_Stroker_Done(stroker);
+		FT_Done_Glyph(glyph);
+		return false;
+	}
+	FT_Outline *o = &((FT_OutlineGlyph)glyph)->outline;
+	const bool outline_ok = _draw_spans(ft_library, o, OUT_SPANS);
 
 	// Clean up afterwards.
 	FT_Stroker_Done(stroker);
 	FT_Done_Glyph(glyph);
+	if (!outline_ok) {
+		return false;
+	}
 
 	if (IN_SPANS->sz == 0) {
 		layout->sizer.width = layout->sizer.height = 0;
@@ -297,7 +497,9 @@ _draw_with_edge(struct font* font, FT_UInt gindex, float line_x, const struct gt
 	layout->metrics_height += img_h - in_img_h;
 
 	if (cb) {
-		cb((int)rect.xmin, (int)rect.ymin, img_w, img_h, line_x, font_color, edge_color);
+		if (!cb((int)rect.xmin, (int)rect.ymin, img_w, img_h, line_x, font_color, edge_color)) {
+			return false;
+		}
 	}
 
 	return true;
@@ -305,17 +507,25 @@ _draw_with_edge(struct font* font, FT_UInt gindex, float line_x, const struct gt
 
 static bool
 _load_glyph_to_bitmap(int unicode, float line_x, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout,
-					  void (*default_cb)(FT_Bitmap* bitmap, float line_x, const struct gtxt_glyph_color* color),
-					  void (*edge_cb)(int img_x, int img_y, int img_w, int img_h, float line_x, const struct gtxt_glyph_color* font_color, const struct gtxt_glyph_color* edge_color)) {
-	if (style->font < 0 || style->font >= FT->count) {
+					  bool (*default_cb)(FT_Bitmap* bitmap, float line_x, const struct gtxt_glyph_color* color),
+					  bool (*edge_cb)(int img_x, int img_y, int img_w, int img_h, float line_x, const struct gtxt_glyph_color* font_color, const struct gtxt_glyph_color* edge_color)) {
+	if (!layout) {
+		return false;
+	}
+	memset(layout, 0, sizeof(*layout));
+	if (!gtxt_ft_ready() || !style || style->font < 0 || style->font >= FT->count) {
 		return false;
 	}
 
 	struct font* sfont = &FT->fonts[style->font];
 	FT_Face ft_face = sfont->face;
-	assert(ft_face);
+	if (!ft_face) {
+		return false;
+	}
 
-	FT_Set_Pixel_Sizes(ft_face, style->font_size, style->font_size);
+	if (FT_Set_Pixel_Sizes(ft_face, style->font_size, style->font_size)) {
+		return false;
+	}
 	FT_Size_Metrics s = ft_face->size->metrics;
 	layout->metrics_height = (float)(s.height >> 6);
 
@@ -338,17 +548,22 @@ _load_glyph_to_bitmap(int unicode, float line_x, const struct gtxt_glyph_style* 
 	}
 }
 
-static inline void
-_prepare_buf(int sz) {
-	if (BUF_SZ < (size_t)sz) {
-		free(BUF);
-		BUF = malloc(sz);
-		if (!BUF) {
-			return;
+static inline bool
+_prepare_buf(size_t sz) {
+	if (sz == 0) {
+		return false;
+	}
+	if (BUF_SZ < sz) {
+		union gtxt_color* next = (union gtxt_color*)malloc(sz);
+		if (!next) {
+			return false;
 		}
+		free(BUF);
+		BUF = next;
 		BUF_SZ = sz;
 	}
 	memset(BUF, 0, sz);
+	return true;
 }
 
 static inline union gtxt_color
@@ -411,10 +626,16 @@ _lerp_color(const struct gtxt_glyph_color* col, float line_x, int w, int h, int 
 	return ret;
 }
 
-static inline void
+static inline bool
 _copy_glyph_default(FT_Bitmap* bitmap, float line_x, const struct gtxt_glyph_color* color) {
-	int sz = sizeof(struct gtxt_glyph_color) * bitmap->rows * bitmap->width;
-	_prepare_buf(sz);
+	if (!bitmap || bitmap->rows == 0 || bitmap->width == 0 ||
+		(size_t)bitmap->rows > SIZE_MAX / sizeof(*BUF) / (size_t)bitmap->width) {
+		return false;
+	}
+	const size_t sz = sizeof(*BUF) * (size_t)bitmap->rows * (size_t)bitmap->width;
+	if (!_prepare_buf(sz)) {
+		return false;
+	}
 
 	int ptr = 0;
 	for (size_t i = 0; i < bitmap->rows; ++i) {
@@ -425,6 +646,12 @@ _copy_glyph_default(FT_Bitmap* bitmap, float line_x, const struct gtxt_glyph_col
 			int dst_ptr = y * bitmap->width + x;
 			union gtxt_color* dst = &BUF[dst_ptr];
 			uint8_t a = bitmap->buffer[ptr];
+			if (SOLID_WHITE) {
+				dst->r = 255;
+				dst->g = 255;
+				dst->b = 255;
+				dst->a = a;
+			} else {
 #ifdef PREMULTIPLY_APLHA
 			dst->r = (src.r * a) >> 8;
 			dst->g = (src.g * a) >> 8;
@@ -436,20 +663,27 @@ _copy_glyph_default(FT_Bitmap* bitmap, float line_x, const struct gtxt_glyph_col
 			dst->b = src.b;
 			dst->a = a;
 #endif // PREMULTIPLY_APLHA
+			}
 			++ptr;
 		}
 	}
+	BUF_VALID = 1;
+	return true;
 }
 
-static inline void
+static inline bool
 _copy_glyph_with_edge(int img_x, int img_y, int img_w, int img_h, float line_x,
                       const struct gtxt_glyph_color* font_color, const struct gtxt_glyph_color* edge_color) {
-	int sz = sizeof(struct gtxt_glyph_color) * img_w * img_h;
-	_prepare_buf(sz);
+	if (img_w <= 0 || img_h <= 0 || (size_t)img_h > SIZE_MAX / sizeof(*BUF) / (size_t)img_w) {
+		return false;
+	}
+	const size_t sz = sizeof(*BUF) * (size_t)img_w * (size_t)img_h;
+	if (!_prepare_buf(sz)) {
+		return false;
+	}
 
 	// Loop over the outline spans and just draw them into the
 	// image.
-	int h = abs(OUT_SPANS->items[OUT_SPANS->sz - 1].y);
 	for (int i = 0; i < OUT_SPANS->sz; ++i) {
 		struct span* out_span = &OUT_SPANS->items[i];
 		for (int w = 0; w < out_span->width; ++w) {
@@ -459,6 +693,12 @@ _copy_glyph_with_edge(int img_x, int img_y, int img_w, int img_h, float line_x,
 			int index = (int)(y * img_w + x);
 			union gtxt_color* dst = &BUF[index];
 			uint8_t a = out_span->coverage;
+			if (SOLID_WHITE) {
+				dst->r = 255;
+				dst->g = 255;
+				dst->b = 255;
+				dst->a = a;
+			} else {
 #ifdef PREMULTIPLY_APLHA
 			dst->r = (src.r * a) >> 8;
 			dst->g = (src.g * a) >> 8;
@@ -470,6 +710,7 @@ _copy_glyph_with_edge(int img_x, int img_y, int img_w, int img_h, float line_x,
 			dst->b = src.b;
 			dst->a = a;
 #endif // PREMULTIPLY_APLHA
+			}
 		}
 	}
 
@@ -484,11 +725,13 @@ _copy_glyph_with_edge(int img_x, int img_y, int img_w, int img_h, float line_x,
 			int index = y * img_w + x;
 			union gtxt_color* dst = &BUF[index];
 			uint8_t a = s->coverage;
+			if (SOLID_WHITE) {
+				dst->r = 255;
+				dst->g = 255;
+				dst->b = 255;
+				dst->a = a;
+			} else {
 #ifdef PREMULTIPLY_APLHA
-			//dst->r = (src.r * a) >> 8;
-			//dst->g = (src.g * a) >> 8;
-			//dst->b = (src.b * a) >> 8;
-			//dst->a = a;
 			dst->r = (int)(dst->r + ((src.r - dst->r) * a) / 255.0f);
 			dst->g = (int)(dst->g + ((src.g - dst->g) * a) / 255.0f);
 			dst->b = (int)(dst->b + ((src.b - dst->b) * a) / 255.0f);
@@ -499,20 +742,32 @@ _copy_glyph_with_edge(int img_x, int img_y, int img_w, int img_h, float line_x,
 			dst->b = src.b;
 			dst->a = a;
 #endif // PREMULTIPLY_APLHA
+			}
 		}
 	}
+	BUF_VALID = 1;
+	return true;
 }
 
 void
 gtxt_ft_get_layout(int unicode, float line_x, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) {
-	_load_glyph_to_bitmap(unicode, line_x, style, layout, NULL, NULL);
+	if (!_load_glyph_to_bitmap(unicode, line_x, style, layout, NULL, NULL) && layout) {
+		memset(layout, 0, sizeof(*layout));
+	}
 }
 
 uint32_t*
 gtxt_ft_gen_char(int unicode, float line_x, const struct gtxt_glyph_style* style, struct gtxt_glyph_layout* layout) {
-	if (FT->count == 0) {
+	if (layout) {
+		memset(layout, 0, sizeof(*layout));
+	}
+	BUF_VALID = 0;
+	if (!gtxt_ft_ready() || FT->count == 0) {
 		return NULL;
 	}
 	bool succ = _load_glyph_to_bitmap(unicode, line_x, style, layout, _copy_glyph_default, _copy_glyph_with_edge);
-	return succ ? (uint32_t*)BUF : NULL;
+	if (!succ && layout) {
+		memset(layout, 0, sizeof(*layout));
+	}
+	return succ && BUF_VALID ? (uint32_t*)BUF : NULL;
 }

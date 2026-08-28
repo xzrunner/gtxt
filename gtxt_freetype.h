@@ -14,12 +14,17 @@ extern "C"
 struct gtxt_glyph_layout;
 struct gtxt_glyph_style;
 
-void gtxt_ft_create();
-void gtxt_ft_release();
+void gtxt_ft_create(void);
+void gtxt_ft_release(void);
+int gtxt_ft_ready(void);
 
 int gtxt_ft_add_font(const char* name, const char* filepath);
 
-int gtxt_ft_get_font_cout();
+int gtxt_ft_get_font_cout(void);
+
+int gtxt_ft_has_glyph(int font, int unicode);
+
+void gtxt_ft_set_solid_white(int enable);
 
 void gtxt_ft_get_layout(int unicode, float line_x, const struct gtxt_glyph_style*, struct gtxt_glyph_layout*);
 uint32_t* gtxt_ft_gen_char(int unicode, float line_x, const struct gtxt_glyph_style*, struct gtxt_glyph_layout*);
